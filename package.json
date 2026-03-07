@@ -1,0 +1,18 @@
+{
+  "name": "galactic-hopper-vs",
+  "version": "1.0.0",
+  "description": "Galactic Hopper VS — jogo multijogador LAN em tempo real",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "keywords": ["game", "multiplayer", "websocket", "lan"],
+  "license": "MIT"
+}
