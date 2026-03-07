@@ -71,11 +71,11 @@ textarea.ta2:focus{border-color:rgba(255,68,204,.65)}
 .mcd-title{font-size:clamp(36px,5vw,76px);font-weight:900;letter-spacing:6px;
   color:var(--c1);text-shadow:0 0 20px var(--c1);margin-bottom:8px}
 .mcd-sub{font-size:18px;letter-spacing:4px;color:rgba(0,255,255,.5);margin-bottom:28px}
-.mcd-rules{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;
-  max-width:480px;width:90%;margin-bottom:28px}
-.mcd-rule{display:flex;align-items:flex-start;gap:8px;font-size:16px;
-  letter-spacing:1px;line-height:1.6;color:rgba(255,255,255,.75)}
-.mcd-icon{font-size:32px;flex-shrink:0;margin-top:-1px}
+.mcd-rules{display:grid;grid-template-columns:1fr 1fr;gap:14px 40px;
+  max-width:760px;width:94%;margin-bottom:28px}
+.mcd-rule{display:flex;align-items:flex-start;gap:12px;font-size:16px;
+  letter-spacing:1px;line-height:1.5;color:rgba(255,255,255,.75)}
+.mcd-icon{font-size:28px;flex-shrink:0;margin-top:2px;min-width:32px;text-align:center}
 .mcd-divider{width:80%;height:1px;background:rgba(0,255,255,.15);margin:4px 0 20px}
 .mcd-timer-wrap{display:flex;flex-direction:column;align-items:center;gap:4px}
 .mcd-timer{font-size:clamp(96px,12vw,176px);font-weight:900;line-height:1;
@@ -170,6 +170,13 @@ canvas{display:block;image-rendering:pixelated}
   gap:10px;align-items:center;width:100%}
 .rvc{display:flex;flex-direction:column;align-items:center;gap:5px}
 .rvsep{font-size:36px;color:rgba(255,255,255,.2);text-align:center}
+.match-score-bar{display:flex;align-items:center;justify-content:center;gap:20px;
+  margin:8px 0 4px;font-size:22px;font-weight:900;letter-spacing:4px}
+.ms-p1{color:var(--c1);text-shadow:0 0 12px var(--c1)}
+.ms-p2{color:var(--c2);text-shadow:0 0 12px var(--c2)}
+.ms-sep{color:rgba(255,255,255,.25);font-size:18px}
+.ms-label{font-size:12px;letter-spacing:3px;color:rgba(255,255,255,.35);text-align:center;margin-bottom:10px}
+.game-num-badge{font-size:12px;letter-spacing:4px;color:rgba(255,200,80,.7);margin-bottom:4px}
 .wbadge{font-size:16px;letter-spacing:3px;padding:4px 10px;
   border-radius:2px;font-weight:700;margin-bottom:4px}
 .wbadge.w1{background:rgba(0,255,255,.18);color:var(--c1);border:1px solid var(--c1)}
@@ -288,8 +295,15 @@ canvas{display:block;image-rendering:pixelated}
 <div id="scr-result" class="screen" style="display:none">
   <canvas id="result-bg" class="bg"></canvas>
   <div class="sc">
+    <div class="game-num-badge" id="result-game-num"></div>
     <div id="result-winner-label" class="go-label" style="font-size:18px;letter-spacing:5px;color:#ff4444;text-shadow:0 0 10px #ff4444"></div>
     <div class="big-title" id="result-title" style="font-size:clamp(44px,6vw,92px)"></div>
+    <div class="match-score-bar">
+      <span class="ms-p1" id="ms-p1">0</span>
+      <span class="ms-sep">·</span>
+      <span class="ms-p2" id="ms-p2">0</span>
+    </div>
+    <div class="ms-label" id="ms-label">SÉRIE</div>
     <div class="result-vs">
       <div class="rvc">
         <div class="rname n1">JOGADOR 1</div>
@@ -308,7 +322,8 @@ canvas{display:block;image-rendering:pixelated}
     <div id="result-reason" style="font-size:16px;letter-spacing:2px;color:rgba(255,200,100,.7)"></div>
     <div class="divl"></div>
     <div class="btn-row">
-      <button class="btn" id="btn-rematch">↺ REVANCHE</button>
+      <button class="btn" id="btn-rematch" style="display:none">↺ REVANCHE</button>
+      <button class="btn" id="btn-next-game" style="display:none">▶ PRÓXIMO JOGO</button>
       <button class="btn bw" id="btn-lobby2">↩ LOBBY</button>
     </div>
   </div>
@@ -346,6 +361,15 @@ const BAY_COLS=[2,5,9,13,16];    // mothership docking col indices
 const P1_SC=4, P2_SC=14;          // start columns
 const P1C='#00ffff', P2C='#ff44cc';
 const MISSION_SEC=180, NLIVES=5;
+const WINS_NEEDED = 3;  // first to 3 wins the match
+
+// Per-game difficulty escalation (game index 0,1,2,3,4)
+// speed multiplier stacked on top of LVL_MULT
+const GAME_SPD  = [1.0, 1.3, 1.65, 2.0, 2.4];
+// BH interval per game (null = inactive at game start for that game)
+const GAME_BH   = [null, 140, 100, 70, 50];
+
+let MATCH = {p1:0, p2:0, game:0}; // match state, reset only on full rematch
 const CENTER_X=W/2;               // 9.5*TILE = 323
 
 /* ═══════════════════════════════════════════════════════════
@@ -407,7 +431,7 @@ function initG(seed){
     p1:{row:ROWS-1,col:P1_SC,lives:NLIVES,score:0,glow:0,dying:0,dead:false},
     p2:{row:ROWS-1,col:P2_SC,lives:NLIVES,score:0,glow:0,dying:0,dead:false},
     bgStars:[],parts:[],
-    bh:{active:false,row:ROWS-1,col:0,px:TILE/2,py:(ROWS-1)*TILE+TILE/2,
+    bh:{active:MATCH.game>0,row:ROWS-1,col:0,px:TILE/2,py:(ROWS-1)*TILE+TILE/2,
        spx:TILE/2,spy:(ROWS-1)*TILE+TILE/2,epx:TILE/2,epy:(ROWS-1)*TILE+TILE/2,
        timer:0,lerpT:1},
     lvlFlash:0, warpFx1:0, warpFx2:0,
@@ -428,9 +452,10 @@ function rebuildObs(lvl,seed){
   seed=seed||G.seed;
   const rng=makeRNG(seed+lvl*2000);
   const m=LVL_MULT[Math.min(lvl,3)],e=LVL_EXTRA[Math.min(lvl,3)];
+  const gm=GAME_SPD[Math.min(MATCH.game, GAME_SPD.length-1)]; // game difficulty
   obs=[];
   BASE_LANES.forEach(def=>{
-    const n=def.n+e,sp=def.d*def.spBase*m;
+    const n=def.n+e,sp=def.d*def.spBase*m*gm;
     const spacing=W/n;
     for(let i=0;i<n;i++){
       const sx=def.d>0?-def.ow*TILE+i*spacing+rng.r(-5,5):W+i*spacing+rng.r(-5,5);
@@ -1005,12 +1030,17 @@ function applyDock(pid,bayIdx){
 /* ═══════════════════════════════════════════════════════════
    GAME LOGIC: BLACK HOLE
 ═══════════════════════════════════════════════════════════ */
-const BH_INT=[null,999,999,90]; // frames between BH moves
+const BH_INT=[null,999,999,90]; // level-based BH interval (game 0 only)
+function bhInterval(){
+  // Game 0: level-gated (999 until level 3). Game 1+: use GAME_BH, gets faster each game
+  if(MATCH.game===0) return BH_INT[Math.min(G.level,3)];
+  return GAME_BH[Math.min(MATCH.game, GAME_BH.length-1)];
+}
 function tickBH(dt){
   if(!G.bh.active)return;
   const bh=G.bh;
   bh.timer+=dt;
-  if(bh.timer>=BH_INT[Math.min(G.level,3)]){
+  if(bh.timer>=bhInterval()){
     bh.timer=0;
     // Target the player with MORE bays (to balance the game)
     const p1b=G.bays.filter(b=>b===1).length,p2b=G.bays.filter(b=>b===2).length;
@@ -1172,7 +1202,15 @@ gc.addEventListener('touchend',e=>{
 function handleNetMsg(msg){
   switch(msg.t){
     case'start':
+      MATCH={p1:0,p2:0,game:0}; // P2 resets match on fresh start
       G.seed=msg.seed; initG(msg.seed); lastSecTs=performance.now();
+      goGame(); break;
+    case'next':
+      // P1 starting next game in series
+      MATCH=msg.match;
+      G.seed=msg.seed; initG(msg.seed); lastSecTs=performance.now();
+      document.getElementById('scr-result').style.display='none';
+      document.getElementById('scr-lobby').style.display='none';
       goGame(); break;
     case'pos':
       {const rp=gameMode==='p1'?G.p2:G.p1; rp.row=msg.r; rp.col=msg.c;} break;
@@ -1264,6 +1302,14 @@ function showCountdown(onDone){
   }
 
   modal.classList.add('show');
+  // Show difficulty badge in sub-title
+  const gameIdx = MATCH.game;
+  const diffLabels = ['NORMAL','RÁPIDO ⚡','VELOZ ⚡⚡','INSANO ⚡⚡⚡','CAOS ⚡⚡⚡⚡'];
+  const diffLabel = diffLabels[Math.min(gameIdx, diffLabels.length-1)];
+  const bhNote = gameIdx > 0 ? ' · ⚫ BURACO NEGRO ATIVO' : '';
+  document.querySelector('.mcd-sub').textContent =
+    'JOGO '+(gameIdx+1)+'  ·  '+diffLabel+bhNote+'  ·  COMEÇA EM';
+
   let t = 20;
   numEl.textContent = t;
 
@@ -1416,6 +1462,7 @@ document.getElementById('btn-leave-table').addEventListener('click',()=>{
 
 function startMission(){
   const seed=Math.floor(Math.random()*0xffffff);
+  // MATCH.game is managed externally; only reset here if game=0 (fresh start)
   initG(seed);
   lastSecTs=performance.now();
   hideAll();
@@ -1436,13 +1483,44 @@ function startMission(){
 function showResult(winner,reason){
   G.running=false;cancelAnimationFrame(loopId);
   document.getElementById('wrap').style.display='none';
-  const p1b=G.bays.filter(b=>b===1).length,p2b=G.bays.filter(b=>b===2).length;
+
+  // Update match score
+  if(winner===1) MATCH.p1++;
+  else if(winner===2) MATCH.p2++;
+
+  const matchOver = MATCH.p1>=WINS_NEEDED || MATCH.p2>=WINS_NEEDED;
+  const matchWinner = MATCH.p1>=WINS_NEEDED ? 1 : MATCH.p2>=WINS_NEEDED ? 2 : 0;
+
+  const p1b=G.bays.filter(b=>b===1).length, p2b=G.bays.filter(b=>b===2).length;
   const reasons={bays:'3 DOCAS CONQUISTADAS',lives:'ELIMINAÇÃO',time:'TEMPO ESGOTADO'};
   document.getElementById('result-reason').textContent=reasons[reason]||reason;
+
+  // Game result header
   const titleEl=document.getElementById('result-title');
   const labelEl=document.getElementById('result-winner-label');
-  if(winner===0){titleEl.textContent='EMPATE';labelEl.textContent='MISSÃO EMPATADA';}
-  else{titleEl.textContent='JOGADOR '+winner;labelEl.textContent='VITÓRIA';}
+  const gameNumEl=document.getElementById('result-game-num');
+  gameNumEl.textContent='JOGO '+(MATCH.game+1);
+
+  if(matchOver){
+    labelEl.style.color='#ffdd00'; labelEl.style.textShadow='0 0 10px #ffdd00';
+    labelEl.textContent='MATCH VENCIDO!';
+    titleEl.textContent='JOGADOR '+matchWinner;
+  } else if(winner===0){
+    labelEl.textContent='JOGO EMPATADO'; titleEl.textContent='EMPATE';
+  } else {
+    labelEl.style.color=''; labelEl.style.textShadow='';
+    labelEl.textContent='JOGO VENCIDO';
+    titleEl.textContent='JOGADOR '+winner;
+  }
+
+  // Match score bar
+  document.getElementById('ms-p1').textContent=MATCH.p1;
+  document.getElementById('ms-p2').textContent=MATCH.p2;
+  document.getElementById('ms-label').textContent=
+    matchOver
+      ? (MATCH.p1>=WINS_NEEDED?'J1 VENCEU O MATCH ':'J2 VENCEU O MATCH ')+(MATCH.p1+'-'+MATCH.p2)
+      : 'SÉRIE  J1 '+MATCH.p1+' · J2 '+MATCH.p2+'  (primeiro a '+WINS_NEEDED+')';
+
   const mkBays=(id,pid)=>{
     const el=document.getElementById(id);el.innerHTML='';
     G.bays.forEach(o=>{const d=document.createElement('div');d.className='rbd '+(o===pid?'o'+pid:'');el.appendChild(d);});
@@ -1452,23 +1530,36 @@ function showResult(winner,reason){
   document.getElementById('rsc2').textContent=G.p2.score+' pts';
   document.getElementById('rli1').textContent='♥ '+G.p1.lives+'  |  docas: '+p1b;
   document.getElementById('rli2').textContent='docas: '+p2b+'  |  ♥ '+G.p2.lives;
+
+  // Show correct button
+  document.getElementById('btn-rematch').style.display = matchOver ? 'block' : 'none';
+  document.getElementById('btn-next-game').style.display = matchOver ? 'none' : 'block';
+
   document.getElementById('scr-result').style.display='flex';
   makeStarfield(document.getElementById('result-bg'));
 }
 
-document.getElementById('btn-rematch').addEventListener('click',()=>{
+function startNextGame(resetMatch){
   document.getElementById('scr-result').style.display='none';
-  if(gameMode==='local'){startMission();}
-  else{
-    // P1 sends new start
-    if(gameMode==='p1'){
-      const seed=Math.floor(Math.random()*0xffffff);
-      net.send({t:'start',seed});G.seed=seed;initG(seed);lastSecTs=performance.now();goGame();
-    } else {
-      hideAll();document.getElementById('scr-lobby').style.display='flex';
-      setNote('Aguarda que o anfitrião inicie nova missão...','rgba(0,255,255,.45)');
-    }
+  if(resetMatch){ MATCH={p1:0,p2:0,game:0}; }
+  else { MATCH.game++; }
+  if(gameMode==='local'){ startMission(); }
+  else if(gameMode==='p1'){
+    const seed=Math.floor(Math.random()*0xffffff);
+    net.send({t:'next',seed,match:MATCH});
+    G.seed=seed; initG(seed); lastSecTs=performance.now(); goGame();
+  } else {
+    // P2 waits for P1 to trigger
+    hideAll(); document.getElementById('scr-lobby').style.display='flex';
+    setNote('À espera que J1 inicie o próximo jogo...','rgba(0,255,255,.45)');
   }
+}
+
+document.getElementById('btn-rematch').addEventListener('click',()=>{
+  startNextGame(true); // full match reset
+});
+document.getElementById('btn-next-game').addEventListener('click',()=>{
+  startNextGame(false); // next game in series
 });
 
 /* ═══════════════════════════════════════════════════════════
