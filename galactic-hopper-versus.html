@@ -474,37 +474,37 @@ const LOCAL_DIFF_CFG = {
   },
   3: {
     label:'RÁPIDO',     color:'#ff8800',
-    desc:'Obstáculos mais rápidos · wormholes em todos os níveis',
+    desc:'Obstáculos mais rápidos · 2 wormholes desde o início · buraco negro ativo',
     spd: 1.55, extra: 1,
-    wh:  [null, [[2,2,10,16]], [[2,2,10,16],[4,8,8,10]], [[2,2,10,16],[4,8,8,10],[1,9,11,9]]],
-    bh_int: [null,999,120,60],
+    wh:  [null,
+      [[2,2,10,16],[4,8,8,10]],                          // lvl1: 2 WH
+      [[2,2,10,16],[4,8,8,10],[1,9,11,9]],               // lvl2: 3 WH
+      [[2,2,10,16],[4,8,8,10],[1,9,11,9],[3,4,9,14]]],   // lvl3: 4 WH
+    bh_int: [null,120,80,50],
   },
   4: {
     label:'INTENSO',    color:'#ff4488',
-    desc:'Mais rápido · menos obstáculos · +2 wormholes extras',
+    desc:'Mais rápido · 3 wormholes desde o início · 2 buracos negros',
     spd: 1.55, extra: -1,
     wh:  [null,
-      [[2,2,10,16],[4,8,8,10]],
-      [[2,2,10,16],[4,8,8,10],[1,9,11,9]],
-      [[2,2,10,16],[4,8,8,10],[1,9,11,9],[3,4,9,14]]
-    ],
-    bh_int: [null,999,90,50],
+      [[2,2,10,16],[4,8,8,10],[1,9,11,9]],               // lvl1: 3 WH
+      [[2,2,10,16],[4,8,8,10],[1,9,11,9],[3,4,9,14]],    // lvl2: 4 WH
+      [[2,2,10,16],[4,8,8,10],[1,9,11,9],[3,4,9,14],[6,2,6,16]]],  // lvl3: 5 WH
+    bh_int: [null,90,60,40],
   },
   5: {
     label:'CAOS',       color:'#cc44ff',
-    desc:'Muito rápido · +3 wormholes · 1 diretamente nos objetivos',
+    desc:'Muito rápido · 4 wormholes · 2 buracos negros implacáveis',
     spd: 1.85, extra: 0,
-    // Extra wormhole near bay row (row 1 <-> row 0 area, cols near bays)
     wh: [null,
-      [[2,2,10,16],[4,8,8,10]],
-      [[2,2,10,16],[4,8,8,10],[1,9,11,9]],
-      [[2,2,10,16],[4,8,8,10],[1,9,11,9],[1,4,1,13]]  // row1 near bays
-    ],
-    bh_int: [null,150,80,40],
+      [[2,2,10,16],[4,8,8,10],[1,9,11,9],[3,4,9,14]],    // lvl1: 4 WH
+      [[2,2,10,16],[4,8,8,10],[1,9,11,9],[3,4,9,14],[6,2,6,16]], // lvl2: 5 WH
+      [[2,2,10,16],[4,8,8,10],[1,9,11,9],[3,4,9,14],[6,2,6,16],[1,4,1,13]]], // lvl3: 6 WH (1 junto bays)
+    bh_int: [null,60,40,25],
   },
 };
 // Per-level wormhole colors (5 slots)
-const WH_COL5=['#00ffcc','#cc44ff','#ffcc00','#ff6622','#88ffcc'];
+const WH_COL5=['#00ffcc','#cc44ff','#ffcc00','#ff6622','#88ffcc','#ff44aa'];
 
 /* ── WebSocket net ── */
 const net={
