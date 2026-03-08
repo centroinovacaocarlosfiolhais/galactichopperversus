@@ -206,6 +206,33 @@ canvas{display:block;image-rendering:pixelated}
 .conn-dot.ok{background:#00ff88;box-shadow:0 0 6px #00ff88}
 .ready-row{display:flex;gap:16px;justify-content:center}
 .readyp{display:flex;align-items:center;gap:5px;font-size:16px;letter-spacing:2px}
+
+/* ── DIFFICULTY SELECT ── */
+#diff-grid{display:flex;flex-direction:column;gap:8px;width:100%;max-width:480px}
+.diff-btn{display:flex;align-items:center;gap:14px;padding:14px 18px;cursor:pointer;
+  background:rgba(0,255,255,.04);border:1px solid rgba(0,255,255,.18);border-radius:6px;
+  transition:all .2s;text-align:left;width:100%}
+.diff-btn:hover{background:rgba(0,255,255,.12);border-color:rgba(0,255,255,.5)}
+.diff-num{font-size:28px;font-weight:900;font-family:'Orbitron',monospace;
+  min-width:36px;text-align:center}
+.diff-info{display:flex;flex-direction:column;gap:2px}
+.diff-name{font-size:16px;font-weight:700;letter-spacing:2px;font-family:'Orbitron',monospace}
+.diff-desc{font-size:12px;letter-spacing:1px;color:rgba(255,255,255,.5);line-height:1.4}
+.diff-btn.d1 .diff-num{color:#44ffcc}
+.diff-btn.d2 .diff-num{color:#44ccff}
+.diff-btn.d3 .diff-num{color:#ff8800}
+.diff-btn.d4 .diff-num{color:#ff4488}
+.diff-btn.d5 .diff-num{color:#cc44ff}
+
+/* ── LADDER CARD ── */
+.ladder-card{padding:14px;border-radius:6px;display:flex;flex-direction:column;gap:4px}
+.ladder-card.n1{background:rgba(0,255,255,.08);border:1px solid rgba(0,255,255,.25)}
+.ladder-card.n2{background:rgba(255,68,204,.08);border:1px solid rgba(255,68,204,.25)}
+.ladder-total{font-size:32px;font-weight:900;font-family:'Orbitron',monospace;line-height:1}
+.ladder-card.n1 .ladder-total{color:var(--c1);text-shadow:0 0 12px var(--c1)}
+.ladder-card.n2 .ladder-total{color:var(--c2);text-shadow:0 0 12px var(--c2)}
+.ladder-breakdown{font-size:11px;letter-spacing:1px;color:rgba(255,255,255,.45);line-height:1.8}
+.ladder-wins{font-size:13px;letter-spacing:2px;font-weight:700;margin-top:2px}
 </style>
 </head>
 <body>
@@ -237,7 +264,18 @@ canvas{display:block;image-rendering:pixelated}
   </div>
 </div>
 
-<!-- ═══ CREATE ROOM (P1) ═════════════════════════════════════════ -->
+
+<!-- ═══ DIFFICULTY SELECT (LOCAL) ══════════════════════════════ -->
+<div id="scr-diff" class="screen" style="display:none">
+  <canvas id="diff-bg" class="bg"></canvas>
+  <div class="sc" style="gap:14px">
+    <div class="sub" style="letter-spacing:6px">JOGO LOCAL</div>
+    <div class="lbl">ESCOLHE A DIFICULDADE</div>
+    <div id="diff-grid"></div>
+    <button class="btn bw" id="btn-diff-back" style="max-width:200px">← VOLTAR</button>
+  </div>
+</div>
+
 <!-- ═══ GAME ══════════════════════════════════════════════════════ -->
 <div id="wrap">
   <div id="hud">
@@ -321,9 +359,21 @@ canvas{display:block;image-rendering:pixelated}
     </div>
     <div id="result-reason" style="font-size:16px;letter-spacing:2px;color:rgba(255,200,100,.7)"></div>
     <div class="divl"></div>
+    <!-- Ladder summary (shown after online match ends) -->
+    <div id="ladder-summary" style="display:none;width:100%;max-width:520px;margin:6px 0">
+      <div class="lbl" style="text-align:center;margin-bottom:10px;letter-spacing:4px">🏆 PONTUAÇÃO TOTAL DA SÉRIE</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="ladder-card n1" id="ladder-p1"></div>
+        <div class="ladder-card n2" id="ladder-p2"></div>
+      </div>
+      <div class="lbl" style="text-align:center;margin-top:10px;font-size:10px;letter-spacing:2px;color:rgba(255,255,255,.3)">
+        Regista estes pontos na tabela do evento
+      </div>
+    </div>
     <div class="btn-row">
-      <button class="btn" id="btn-rematch" style="display:none">↺ REVANCHE</button>
+      <button class="btn" id="btn-rematch" style="display:none">↺ NOVA SÉRIE</button>
       <button class="btn" id="btn-next-game" style="display:none">▶ PRÓXIMO JOGO</button>
+      <button class="btn bw" id="btn-diff-again" style="display:none">↺ JOGAR DE NOVO</button>
       <button class="btn bw" id="btn-lobby2">↩ LOBBY</button>
     </div>
   </div>
@@ -369,7 +419,8 @@ const GAME_SPD  = [1.0, 1.3, 1.65, 2.0, 2.4];
 // BH interval per game (null = inactive at game start for that game)
 const GAME_BH   = [null, 140, 100, 70, 50];
 
-let MATCH = {p1:0, p2:0, game:0}; // match state, reset only on full rematch
+let MATCH = {p1:0, p2:0, game:0}; // online match state
+let LOCAL_SESSION = {p1pts:0, p2pts:0}; // local cumulative score (single game, no series)
 const CENTER_X=W/2;               // 9.5*TILE = 323
 
 /* ═══════════════════════════════════════════════════════════
@@ -406,6 +457,66 @@ const WH_CFG=[null,
 ];
 const WH_COL=['#00ffcc','#cc44ff','#ffcc00'];
 
+/* ── LOCAL DIFFICULTY CONFIGS (5 levels) ──────────────────────────
+   Each overrides: speed multiplier, obstacle count modifier,
+   wormhole config, and BH behavior.
+   Applied only in gameMode==='local', via LOCAL_DIFF variable.
+─────────────────────────────────────────────────────────────────── */
+let LOCAL_DIFF = 2; // default: D2 (current normal)
+
+// spd: multiplier on BASE_LANES speeds (stacked with LVL_MULT)
+// extra: extra obstacles per lane
+// wh: wormhole configs [[r1,c1,r2,c2], ...] per level [null, lvl1, lvl2, lvl3]
+// bh_int: BH move interval in frames (null = BH inactive whole game)
+const LOCAL_DIFF_CFG = {
+  1: {
+    label:'INICIANTE',  color:'#44ffcc',
+    desc:'Mais lento · sem teletransporte · ideal para aprender',
+    spd: 0.65, extra: 0,
+    wh:  [null, [], [], []],     // no wormholes at any level
+    bh_int: null,
+  },
+  2: {
+    label:'NORMAL',     color:'#44ccff',
+    desc:'Velocidade padrão · 1 wormhole · buraco negro no nível 3',
+    spd: 1.0,  extra: 0,
+    wh:  WH_CFG,
+    bh_int: [null,999,999,90],   // same as current default
+  },
+  3: {
+    label:'RÁPIDO',     color:'#ff8800',
+    desc:'Obstáculos mais rápidos · wormholes em todos os níveis',
+    spd: 1.55, extra: 1,
+    wh:  [null, [[2,2,10,16]], [[2,2,10,16],[4,8,8,10]], [[2,2,10,16],[4,8,8,10],[1,9,11,9]]],
+    bh_int: [null,999,120,60],
+  },
+  4: {
+    label:'INTENSO',    color:'#ff4488',
+    desc:'Mais rápido · menos obstáculos · +2 wormholes extras',
+    spd: 1.9,  extra: -1,
+    wh:  [null,
+      [[2,2,10,16],[4,8,8,10]],
+      [[2,2,10,16],[4,8,8,10],[1,9,11,9]],
+      [[2,2,10,16],[4,8,8,10],[1,9,11,9],[3,4,9,14]]
+    ],
+    bh_int: [null,999,90,50],
+  },
+  5: {
+    label:'CAOS',       color:'#cc44ff',
+    desc:'Muito rápido · +3 wormholes · 1 diretamente nos objetivos',
+    spd: 2.4,  extra: 0,
+    // Extra wormhole near bay row (row 1 <-> row 0 area, cols near bays)
+    wh: [null,
+      [[2,2,10,16],[4,8,8,10]],
+      [[2,2,10,16],[4,8,8,10],[1,9,11,9]],
+      [[2,2,10,16],[4,8,8,10],[1,9,11,9],[1,4,1,13]]  // row1 near bays
+    ],
+    bh_int: [null,150,80,40],
+  },
+};
+// Per-level wormhole colors (5 slots)
+const WH_COL5=['#00ffcc','#cc44ff','#ffcc00','#ff6622','#88ffcc'];
+
 /* ── WebSocket net ── */
 const net={
   ws:null,connected:false,
@@ -431,7 +542,7 @@ function initG(seed){
     p1:{row:ROWS-1,col:P1_SC,lives:NLIVES,score:0,glow:0,dying:0,dead:false},
     p2:{row:ROWS-1,col:P2_SC,lives:NLIVES,score:0,glow:0,dying:0,dead:false},
     bgStars:[],parts:[],
-    bh:{active:MATCH.game>0,row:ROWS-1,col:0,px:TILE/2,py:(ROWS-1)*TILE+TILE/2,
+    bh:{active:gameMode==='local'?false:MATCH.game>0,row:ROWS-1,col:0,px:TILE/2,py:(ROWS-1)*TILE+TILE/2,
        spx:TILE/2,spy:(ROWS-1)*TILE+TILE/2,epx:TILE/2,epy:(ROWS-1)*TILE+TILE/2,
        timer:0,lerpT:1},
     lvlFlash:0, warpFx1:0, warpFx2:0,
@@ -452,10 +563,17 @@ function rebuildObs(lvl,seed){
   seed=seed||G.seed;
   const rng=makeRNG(seed+lvl*2000);
   const m=LVL_MULT[Math.min(lvl,3)],e=LVL_EXTRA[Math.min(lvl,3)];
-  const gm=GAME_SPD[Math.min(MATCH.game, GAME_SPD.length-1)]; // game difficulty
+  // speed/extra: local uses LOCAL_DIFF_CFG, online uses GAME_SPD
+  let gm, extraAdj;
+  if(gameMode==='local'){
+    const cfg=LOCAL_DIFF_CFG[LOCAL_DIFF];
+    gm=cfg.spd; extraAdj=e+cfg.extra;
+  } else {
+    gm=GAME_SPD[Math.min(MATCH.game, GAME_SPD.length-1)]; extraAdj=e;
+  }
   obs=[];
   BASE_LANES.forEach(def=>{
-    const n=def.n+e,sp=def.d*def.spBase*m*gm;
+    const n=Math.max(1,def.n+extraAdj),sp=def.d*def.spBase*m*gm;
     const spacing=W/n;
     for(let i=0;i<n;i++){
       const sx=def.d>0?-def.ow*TILE+i*spacing+rng.r(-5,5):W+i*spacing+rng.r(-5,5);
@@ -466,8 +584,10 @@ function rebuildObs(lvl,seed){
 }
 
 function rebuildWH(lvl){
-  const cfg=WH_CFG[Math.min(lvl,3)]||[];
-  wh=cfg.map((p,i)=>({a:{r:p[0],c:p[1]},b:{r:p[2],c:p[3]},col:WH_COL[i],ph:Math.random()*TAU}));
+  const whCfg = gameMode==='local'
+    ? (LOCAL_DIFF_CFG[LOCAL_DIFF].wh[Math.min(lvl,3)]||[])
+    : (WH_CFG[Math.min(lvl,3)]||[]);
+  wh=whCfg.map((p,i)=>({a:{r:p[0],c:p[1]},b:{r:p[2],c:p[3]},col:WH_COL5[i%WH_COL5.length],ph:Math.random()*TAU}));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1032,7 +1152,12 @@ function applyDock(pid,bayIdx){
 ═══════════════════════════════════════════════════════════ */
 const BH_INT=[null,999,999,90]; // level-based BH interval (game 0 only)
 function bhInterval(){
-  // Game 0: level-gated (999 until level 3). Game 1+: use GAME_BH, gets faster each game
+  if(gameMode==='local'){
+    const t=LOCAL_DIFF_CFG[LOCAL_DIFF].bh_int;
+    if(!t||t===null) return 99999; // BH inactive
+    return t[Math.min(G.level,3)]??99999;
+  }
+  // Online: game 0 level-gated, game 1+ use GAME_BH
   if(MATCH.game===0) return BH_INT[Math.min(G.level,3)];
   return GAME_BH[Math.min(MATCH.game, GAME_BH.length-1)];
 }
@@ -1268,7 +1393,7 @@ function tick(ts){
    SCREEN MANAGEMENT
 ═══════════════════════════════════════════════════════════ */
 function hideAll(){
-  ['scr-title','scr-lobby','scr-result','wrap']
+  ['scr-title','scr-lobby','scr-diff','scr-result','wrap']
     .forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
 }
 function goLobby(){
@@ -1302,13 +1427,20 @@ function showCountdown(onDone){
   }
 
   modal.classList.add('show');
-  // Show difficulty badge in sub-title
-  const gameIdx = MATCH.game;
-  const diffLabels = ['NORMAL','RÁPIDO ⚡','VELOZ ⚡⚡','INSANO ⚡⚡⚡','CAOS ⚡⚡⚡⚡'];
-  const diffLabel = diffLabels[Math.min(gameIdx, diffLabels.length-1)];
-  const bhNote = gameIdx > 0 ? ' · ⚫ BURACO NEGRO ATIVO' : '';
-  document.querySelector('.mcd-sub').textContent =
-    'JOGO '+(gameIdx+1)+'  ·  '+diffLabel+bhNote+'  ·  COMEÇA EM';
+  // Show difficulty in subtitle
+  if(gameMode==='local'){
+    const dcfg = LOCAL_DIFF_CFG[LOCAL_DIFF];
+    const bhNote = dcfg.bh_int ? ' · ⚫ BH ATIVO' : '';
+    document.querySelector('.mcd-sub').textContent =
+      'D'+LOCAL_DIFF+' '+dcfg.label+bhNote+'  ·  COMEÇA EM';
+  } else {
+    const gameIdx = MATCH.game;
+    const diffLabels = ['NORMAL','RÁPIDO ⚡','VELOZ ⚡⚡','INSANO ⚡⚡⚡','CAOS ⚡⚡⚡⚡'];
+    const diffLabel  = diffLabels[Math.min(gameIdx, diffLabels.length-1)];
+    const bhNote     = gameIdx > 0 ? ' · ⚫ BURACO NEGRO ATIVO' : '';
+    document.querySelector('.mcd-sub').textContent =
+      'JOGO '+(gameIdx+1)+'  ·  '+diffLabel+bhNote+'  ·  COMEÇA EM';
+  }
 
   let t = 20;
   numEl.textContent = t;
@@ -1352,7 +1484,40 @@ document.getElementById('btn-lobby2').addEventListener('click',()=>{
 });
 document.getElementById('btn-local').addEventListener('click',()=>{
   gameMode='local';
-  startMission();
+  showDiffSelect();
+});
+
+function showDiffSelect(){
+  hideAll();
+  document.getElementById('scr-diff').style.display='flex';
+  makeStarfield(document.getElementById('diff-bg'));
+  renderDiffGrid();
+}
+
+function renderDiffGrid(){
+  const grid = document.getElementById('diff-grid');
+  grid.innerHTML = '';
+  for(let d=1; d<=5; d++){
+    const cfg = LOCAL_DIFF_CFG[d];
+    const btn = document.createElement('button');
+    btn.className = 'diff-btn d'+d;
+    btn.innerHTML = \`<span class="diff-num" style="color:\${cfg.color}">\${d}</span>
+      <span class="diff-info">
+        <span class="diff-name" style="color:\${cfg.color}">\${cfg.label}</span>
+        <span class="diff-desc">\${cfg.desc}</span>
+      </span>\`;
+    btn.addEventListener('click', ()=>{
+      LOCAL_DIFF = d;
+      LOCAL_SESSION = {p1pts:0, p2pts:0}; // reset session on new game
+      startMission();
+    });
+    grid.appendChild(btn);
+  }
+}
+
+document.getElementById('btn-diff-back').addEventListener('click',()=>{
+  hideAll();
+  document.getElementById('scr-lobby').style.display='flex';
 });
 
 /* ═══════════════════════════════════════════════════════════
@@ -1484,59 +1649,105 @@ function startMission(){
    RESULT SCREEN
 ═══════════════════════════════════════════════════════════ */
 function showResult(winner,reason){
-  G.running=false;cancelAnimationFrame(loopId);
+  G.running=false; cancelAnimationFrame(loopId);
   document.getElementById('wrap').style.display='none';
-
-  // Update match score
-  if(winner===1) MATCH.p1++;
-  else if(winner===2) MATCH.p2++;
-
-  const matchOver = MATCH.p1>=WINS_NEEDED || MATCH.p2>=WINS_NEEDED;
-  const matchWinner = MATCH.p1>=WINS_NEEDED ? 1 : MATCH.p2>=WINS_NEEDED ? 2 : 0;
 
   const p1b=G.bays.filter(b=>b===1).length, p2b=G.bays.filter(b=>b===2).length;
   const reasons={bays:'3 DOCAS CONQUISTADAS',lives:'ELIMINAÇÃO',time:'TEMPO ESGOTADO'};
   document.getElementById('result-reason').textContent=reasons[reason]||reason;
 
-  // Game result header
-  const titleEl=document.getElementById('result-title');
-  const labelEl=document.getElementById('result-winner-label');
-  const gameNumEl=document.getElementById('result-game-num');
-  gameNumEl.textContent='JOGO '+(MATCH.game+1);
-
-  if(matchOver){
-    labelEl.style.color='#ffdd00'; labelEl.style.textShadow='0 0 10px #ffdd00';
-    labelEl.textContent='MATCH VENCIDO!';
-    titleEl.textContent='JOGADOR '+matchWinner;
-  } else if(winner===0){
-    labelEl.textContent='JOGO EMPATADO'; titleEl.textContent='EMPATE';
-  } else {
-    labelEl.style.color=''; labelEl.style.textShadow='';
-    labelEl.textContent='JOGO VENCIDO';
-    titleEl.textContent='JOGADOR '+winner;
-  }
-
-  // Match score bar
-  document.getElementById('ms-p1').textContent=MATCH.p1;
-  document.getElementById('ms-p2').textContent=MATCH.p2;
-  document.getElementById('ms-label').textContent=
-    matchOver
-      ? (MATCH.p1>=WINS_NEEDED?'J1 VENCEU O MATCH ':'J2 VENCEU O MATCH ')+(MATCH.p1+'-'+MATCH.p2)
-      : 'SÉRIE  J1 '+MATCH.p1+' · J2 '+MATCH.p2+'  (primeiro a '+WINS_NEEDED+')';
+  const titleEl  = document.getElementById('result-title');
+  const labelEl  = document.getElementById('result-winner-label');
+  const gameNumEl= document.getElementById('result-game-num');
+  const ladderEl = document.getElementById('ladder-summary');
+  const rematchBtn  = document.getElementById('btn-rematch');
+  const nextBtn     = document.getElementById('btn-next-game');
+  const diffAgainBtn= document.getElementById('btn-diff-again');
 
   const mkBays=(id,pid)=>{
-    const el=document.getElementById(id);el.innerHTML='';
+    const el=document.getElementById(id); el.innerHTML='';
     G.bays.forEach(o=>{const d=document.createElement('div');d.className='rbd '+(o===pid?'o'+pid:'');el.appendChild(d);});
   };
-  mkBays('rb1',1);mkBays('rb2',2);
+  mkBays('rb1',1); mkBays('rb2',2);
   document.getElementById('rsc1').textContent=G.p1.score+' pts';
   document.getElementById('rsc2').textContent=G.p2.score+' pts';
   document.getElementById('rli1').textContent='♥ '+G.p1.lives+'  |  docas: '+p1b;
   document.getElementById('rli2').textContent='docas: '+p2b+'  |  ♥ '+G.p2.lives;
 
-  // Show correct button
-  document.getElementById('btn-rematch').style.display = matchOver ? 'block' : 'none';
-  document.getElementById('btn-next-game').style.display = matchOver ? 'none' : 'block';
+  // ── LOCAL MODE: single game, no series ────────────────────────
+  if(gameMode==='local'){
+    LOCAL_SESSION.p1pts += G.p1.score;
+    LOCAL_SESSION.p2pts += G.p2.score;
+
+    gameNumEl.textContent = 'LOCAL · D'+LOCAL_DIFF+' '+LOCAL_DIFF_CFG[LOCAL_DIFF].label;
+    labelEl.style.color=''; labelEl.style.textShadow='';
+    if(winner===0){ labelEl.textContent='EMPATE'; titleEl.textContent='EMPATE'; }
+    else          { labelEl.textContent='VITÓRIA'; titleEl.textContent='JOGADOR '+winner; }
+
+    // Match score bar: show this game's scores
+    document.getElementById('ms-p1').textContent=G.p1.score;
+    document.getElementById('ms-p2').textContent=G.p2.score;
+    document.getElementById('ms-label').textContent='PONTOS ESTE JOGO';
+
+    // Hide ladder (single game, no series to sum)
+    ladderEl.style.display='none';
+    rematchBtn.style.display='none';
+    nextBtn.style.display='none';
+    diffAgainBtn.style.display='block';
+
+  // ── ONLINE MODE: best-of-3 series ─────────────────────────────
+  } else {
+    if(winner===1) MATCH.p1++;
+    else if(winner===2) MATCH.p2++;
+    MATCH.game++;
+
+    const matchOver   = MATCH.p1>=WINS_NEEDED || MATCH.p2>=WINS_NEEDED;
+    const matchWinner = MATCH.p1>=WINS_NEEDED ? 1 : MATCH.p2>=WINS_NEEDED ? 2 : 0;
+
+    gameNumEl.textContent='JOGO '+MATCH.game;
+    labelEl.style.color=''; labelEl.style.textShadow='';
+
+    if(matchOver){
+      labelEl.style.color='#ffdd00'; labelEl.style.textShadow='0 0 10px #ffdd00';
+      labelEl.textContent='MATCH VENCIDO!';
+      titleEl.textContent='JOGADOR '+matchWinner;
+    } else if(winner===0){
+      labelEl.textContent='JOGO EMPATADO'; titleEl.textContent='EMPATE';
+    } else {
+      labelEl.textContent='JOGO VENCIDO'; titleEl.textContent='JOGADOR '+winner;
+    }
+
+    document.getElementById('ms-p1').textContent=MATCH.p1;
+    document.getElementById('ms-p2').textContent=MATCH.p2;
+    document.getElementById('ms-label').textContent=
+      matchOver
+        ? (MATCH.p1>=WINS_NEEDED?'J1':'J2')+' VENCEU  '+MATCH.p1+'-'+MATCH.p2
+        : 'SÉRIE  J1 '+MATCH.p1+' · J2 '+MATCH.p2+'  (primeiro a '+WINS_NEEDED+')';
+
+    rematchBtn.style.display   = matchOver ? 'block' : 'none';
+    nextBtn.style.display      = matchOver ? 'none'  : 'block';
+    diffAgainBtn.style.display = 'none';
+
+    // ── Ladder summary: cumulative points + wins for the full series ──
+    if(matchOver){
+      // Collect totals from MATCH (we don't store per-game scores in series,
+      // so use final game score as representative; operator records manually)
+      ladderEl.style.display='block';
+      const p1wins=MATCH.p1, p2wins=MATCH.p2;
+      document.getElementById('ladder-p1').innerHTML=
+        '<div class="ladder-breakdown">JOGADOR 1</div>'+
+        '<div class="ladder-total">'+G.p1.score+'</div>'+
+        '<div class="ladder-breakdown">pontos (jogo final)</div>'+
+        '<div class="ladder-wins" style="color:var(--c1)">'+p1wins+' vitória'+(p1wins!==1?'s':'')+'</div>';
+      document.getElementById('ladder-p2').innerHTML=
+        '<div class="ladder-breakdown">JOGADOR 2</div>'+
+        '<div class="ladder-total">'+G.p2.score+'</div>'+
+        '<div class="ladder-breakdown">pontos (jogo final)</div>'+
+        '<div class="ladder-wins" style="color:var(--c2)">'+p2wins+' vitória'+(p2wins!==1?'s':'')+'</div>';
+    } else {
+      ladderEl.style.display='none';
+    }
+  }
 
   document.getElementById('scr-result').style.display='flex';
   makeStarfield(document.getElementById('result-bg'));
@@ -1545,9 +1756,8 @@ function showResult(winner,reason){
 function startNextGame(resetMatch){
   document.getElementById('scr-result').style.display='none';
   if(resetMatch){ MATCH={p1:0,p2:0,game:0}; }
-  else { MATCH.game++; }
-  if(gameMode==='local'){ startMission(); }
-  else if(gameMode==='p1'){
+  // MATCH.game is now incremented inside showResult for online
+  if(gameMode==='p1'){
     const seed=Math.floor(Math.random()*0xffffff);
     net.send({t:'next',seed,match:MATCH});
     G.seed=seed; initG(seed); lastSecTs=performance.now(); goGame();
@@ -1563,6 +1773,12 @@ document.getElementById('btn-rematch').addEventListener('click',()=>{
 });
 document.getElementById('btn-next-game').addEventListener('click',()=>{
   startNextGame(false); // next game in series
+});
+document.getElementById('btn-diff-again').addEventListener('click',()=>{
+  // Local: play again — go back to diff select or same diff
+  LOCAL_SESSION = {p1pts:0, p2pts:0};
+  document.getElementById('scr-result').style.display='none';
+  showDiffSelect();
 });
 
 /* ═══════════════════════════════════════════════════════════
