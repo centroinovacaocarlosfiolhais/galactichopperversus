@@ -256,6 +256,18 @@ canvas{display:block;image-rendering:pixelated}
 .msb-table .hi{color:#ffdd00;text-shadow:0 0 8px #ffaa00}
 .msb-table .p1v{color:var(--c1)}.msb-table .p2v{color:var(--c2)}
 .msb-starting{font-size:12px;letter-spacing:3px;color:rgba(0,255,255,.45);margin-top:4px;text-align:center}
+
+/* ── WAITING MODAL ── */
+#modal-waiting{position:fixed;inset:0;background:rgba(0,0,5,.93);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  z-index:999;font-family:'Orbitron',monospace;gap:18px;padding:20px}
+#modal-waiting.show{display:flex}
+.mw-title{font-size:clamp(18px,4vw,28px);font-weight:900;letter-spacing:5px;
+  color:rgba(0,255,255,.9);text-shadow:0 0 18px #00ffff;text-align:center}
+.mw-sub{font-size:12px;letter-spacing:3px;color:rgba(255,255,255,.4);text-align:center}
+.mw-spinner{width:44px;height:44px;border:3px solid rgba(0,255,255,.15);
+  border-top:3px solid #00ffff;border-radius:50%;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -509,7 +521,7 @@ const LOCAL_DIFF_CFG = {
   3: {
     label:'RÁPIDO',     color:'#ff8800',
     desc:'Obstáculos mais rápidos · 2 wormholes desde o início · buraco negro ativo',
-    spd: 1.55, extra: 1,
+    spd: 1.55, extra: -1,
     wh:  [null,
       [[2,2,10,16],[4,8,8,10]],                          // lvl1: 2 WH
       [[2,2,10,16],[4,8,8,10],[1,9,11,9]],               // lvl2: 3 WH
@@ -565,14 +577,14 @@ function makeBH(col, row){
 }
 function makeBHs(){
   // Online: 1 BH always; Local D4/D5: 2 BHs; otherwise 1
-  const two = gameMode==='local' && (LOCAL_DIFF===4||LOCAL_DIFF===5);
+  const two = LOCAL_DIFF===4 || LOCAL_DIFF===5; // 2 BHs for D4/D5 in any mode
   // Spawn near top — BH1 top-left, BH2 top-right
   const bhs = [makeBH(BAY_COLS[1], 2)];
   if(two) bhs.push(makeBH(BAY_COLS[3], 2)); // clearly separate from BH1
   // Activate: online game>0, or local if bh_int at level 1 is actionable
   // Activate BHs if the difficulty config has an actionable interval at level 1
   const _bhi = LOCAL_DIFF_CFG[LOCAL_DIFF].bh_int;
-  const startActive = _bhi && Array.isArray(_bhi) && _bhi[1] != null && _bhi[1] < 9999;
+  const startActive = _bhi && Array.isArray(_bhi) && _bhi[1] != null && _bhi[1] < 500;
   if(startActive) bhs.forEach(bh=>{ bh.active=true; });
   return bhs;
 }
@@ -1194,7 +1206,7 @@ const BH_INT=[null,999,999,90]; // level-based BH interval (game 0 only)
 function bhInterval(){
   const t=LOCAL_DIFF_CFG[LOCAL_DIFF].bh_int;
   if(!t) return 99999;
-  return t[1] ?? 99999; // fixed at level-1 slot — no time-based progression
+  return (t[1] != null && t[1] < 500) ? t[1] : 99999; // <500 = active BH
 }
 function tickOneBH(bh, target, dt){
   bh.timer+=dt;
@@ -1821,9 +1833,9 @@ function startNextGame(resetMatch){
     net.send({t:'next',seed,match:MATCH});
     G.seed=seed; initG(seed); lastSecTs=performance.now(); goGame();
   } else {
-    // P2 waits for P1 to trigger
-    hideAll(); document.getElementById('scr-lobby').style.display='flex';
-    setNote('À espera que J1 inicie o próximo jogo...','rgba(0,255,255,.45)');
+    // P2 waits for P1 to trigger — show waiting modal
+    document.getElementById('scr-result').style.display='none';
+    document.getElementById('modal-waiting').classList.add('show');
   }
 }
 
@@ -1862,5 +1874,13 @@ setTimeout(resize,200);
 connectWS();
 
 </script>
+
+<!-- ═══ WAITING MODAL (P2 waiting for P1) ═══════════════════════ -->
+<div id="modal-waiting">
+  <div class="mw-spinner"></div>
+  <div class="mw-title">À ESPERA DE J1</div>
+  <div class="mw-sub" id="mw-sub">J1 está a iniciar o próximo jogo...</div>
+</div>
+
 </body>
 </html>
