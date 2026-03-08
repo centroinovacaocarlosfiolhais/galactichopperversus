@@ -1509,6 +1509,7 @@ function showCountdown(onDone){
 
 function goGame(){
   hideAll();
+  document.getElementById('modal-waiting').classList.remove('show');
   document.getElementById('wrap').style.display='flex';
   document.getElementById('dpad-local').style.display='none';
   document.getElementById('dpad-net').style.display='block';
