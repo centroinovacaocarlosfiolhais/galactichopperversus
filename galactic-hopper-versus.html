@@ -570,13 +570,9 @@ function makeBHs(){
   const bhs = [makeBH(BAY_COLS[1], 2)];
   if(two) bhs.push(makeBH(BAY_COLS[3], 2)); // clearly separate from BH1
   // Activate: online game>0, or local if bh_int at level 1 is actionable
-  let startActive;
-  if(gameMode!=='local'){
-    startActive = MATCH.game>0;
-  } else {
-    const bhi = LOCAL_DIFF_CFG[LOCAL_DIFF].bh_int;
-    startActive = bhi && Array.isArray(bhi) && bhi[1] != null && bhi[1] < 999;
-  }
+  // Activate BHs if the difficulty config has an actionable interval at level 1
+  const _bhi = LOCAL_DIFF_CFG[LOCAL_DIFF].bh_int;
+  const startActive = _bhi && Array.isArray(_bhi) && _bhi[1] != null && _bhi[1] < 9999;
   if(startActive) bhs.forEach(bh=>{ bh.active=true; });
   return bhs;
 }
@@ -598,22 +594,19 @@ function initG(seed){
     x:Math.random()*W,y:Math.random()*H,
     r:Math.random()*1.0+.2,sp:Math.random()*.13+.03,tw:Math.random()*TAU
   }));
-  rebuildObs(1,seed);
-  rebuildWH(1); // sets wh[] based on level 1 config
+  // For online mode: difficulty = game number (1-5)
+  if(gameMode!=='local') LOCAL_DIFF = Math.min(MATCH.game + 1, 5);
+  rebuildObs(1,seed); // level param ignored for speed; LOCAL_DIFF controls it
+  rebuildWH(3);       // full wormhole config for this difficulty from game start
 }
 
 function rebuildObs(lvl,seed){
   seed=seed||G.seed;
   const rng=makeRNG(seed+lvl*2000);
-  const m=LVL_MULT[Math.min(lvl,3)],e=LVL_EXTRA[Math.min(lvl,3)];
-  // speed/extra: local uses LOCAL_DIFF_CFG, online uses GAME_SPD
-  let gm, extraAdj;
-  if(gameMode==='local'){
-    const cfg=LOCAL_DIFF_CFG[LOCAL_DIFF];
-    gm=cfg.spd; extraAdj=e+cfg.extra;
-  } else {
-    gm=GAME_SPD[Math.min(MATCH.game, GAME_SPD.length-1)]; extraAdj=e;
-  }
+  const m=LVL_MULT[1]; // flat base — speed controlled entirely by LOCAL_DIFF_CFG
+  const e=LVL_EXTRA[1]; // 0
+  const cfg=LOCAL_DIFF_CFG[LOCAL_DIFF]; // same for both local and online
+  const gm=cfg.spd, extraAdj=e+cfg.extra;
   obs=[];
   BASE_LANES.forEach(def=>{
     const n=Math.max(1,def.n+extraAdj),sp=def.d*def.spBase*m*gm;
@@ -627,9 +620,7 @@ function rebuildObs(lvl,seed){
 }
 
 function rebuildWH(lvl){
-  const whCfg = gameMode==='local'
-    ? (LOCAL_DIFF_CFG[LOCAL_DIFF].wh[Math.min(lvl,3)]||[])
-    : (WH_CFG[Math.min(lvl,3)]||[]);
+  const whCfg = (LOCAL_DIFF_CFG[LOCAL_DIFF].wh[Math.min(lvl,3)]||[]);
   wh=whCfg.map((p,i)=>({a:{r:p[0],c:p[1]},b:{r:p[2],c:p[3]},col:WH_COL5[i%WH_COL5.length],ph:Math.random()*TAU}));
 }
 
@@ -690,7 +681,7 @@ function updateHUD(){
   G.bays.forEach((o,i)=>{
     const d=document.createElement('div');d.className='bdot'+(o===1?' o1':o===2?' o2':'');bh.appendChild(d);
   });
-  document.getElementById('lvlbadge').textContent='NV.'+G.level;
+  document.getElementById('lvlbadge').textContent='D'+LOCAL_DIFF+' '+LOCAL_DIFF_CFG[LOCAL_DIFF].label;
   const p=G.bays.filter(b=>b===1).length,q=G.bays.filter(b=>b===2).length;
   const anyBH=G.bhs.some(b=>b.active);
   const bhClose=anyBH&&G.bhs.some(b=>b.active&&(
@@ -1201,14 +1192,9 @@ function applyDock(pid,bayIdx){
 ═══════════════════════════════════════════════════════════ */
 const BH_INT=[null,999,999,90]; // level-based BH interval (game 0 only)
 function bhInterval(){
-  if(gameMode==='local'){
-    const t=LOCAL_DIFF_CFG[LOCAL_DIFF].bh_int;
-    if(!t||t===null) return 99999; // BH inactive
-    return t[Math.min(G.level,3)]??99999;
-  }
-  // Online: game 0 level-gated, game 1+ use GAME_BH
-  if(MATCH.game===0) return BH_INT[Math.min(G.level,3)];
-  return GAME_BH[Math.min(MATCH.game, GAME_BH.length-1)];
+  const t=LOCAL_DIFF_CFG[LOCAL_DIFF].bh_int;
+  if(!t) return 99999;
+  return t[1] ?? 99999; // fixed at level-1 slot — no time-based progression
 }
 function tickOneBH(bh, target, dt){
   bh.timer+=dt;
@@ -1270,17 +1256,7 @@ function tickTimer(ts){
       const w=p1b>p2b?1:p2b>p1b?2:0;
       triggerEnd(w,'time');return;
     }
-    const tgtLvl=G.timer>120?1:G.timer>60?2:3;
-    if(tgtLvl!==G.level){
-      G.level=tgtLvl;
-      rebuildObs(tgtLvl);rebuildWH(tgtLvl);
-      G.lvlFlash=55;
-      // Activate BHs on any level where bhInterval() is actionable
-      G.bhs.forEach(bh=>{ if(!bh.active && bhInterval()<999) bh.active=true; });
-      updateHUD();
-      showLvlFlashUI(tgtLvl);
-      if(gameMode==='p1')net.send({t:'level',lvl:tgtLvl});
-    }
+    // No time-based level progression — difficulty fixed per game
   }
 }
 
@@ -1415,7 +1391,7 @@ function handleNetMsg(msg){
     case'die':
       {const rdp=gameMode==='p1'?G.p2:G.p1; rdp.lives=msg.lives; updateHUD(); checkWin();} break;
     case'level':
-      G.level=msg.lvl; rebuildObs(msg.lvl); rebuildWH(msg.lvl); G.lvlFlash=55;
+      // level messages ignored — difficulty fixed per game
       if(msg.lvl===3){ const bhi=bhInterval(); if(bhi<999) G.bhs.forEach(bh=>{bh.active=true;}); }
       showLvlFlashUI(msg.lvl); break;
     case'end':setTimeout(()=>showResult(msg.winner,msg.reason),600); break;
@@ -1497,12 +1473,10 @@ function showCountdown(onDone){
     document.querySelector('.mcd-sub').textContent =
       'D'+LOCAL_DIFF+' '+dcfg.label+bhNote+'  ·  COMEÇA EM';
   } else {
-    const gameIdx = MATCH.game;
-    const diffLabels = ['NORMAL','RÁPIDO ⚡','VELOZ ⚡⚡','INSANO ⚡⚡⚡','CAOS ⚡⚡⚡⚡'];
-    const diffLabel  = diffLabels[Math.min(gameIdx, diffLabels.length-1)];
-    const bhNote     = gameIdx > 0 ? ' · ⚫ BURACO NEGRO ATIVO' : '';
+    const dcfg2 = LOCAL_DIFF_CFG[LOCAL_DIFF];
+    const bhNote2 = (dcfg2.bh_int && dcfg2.bh_int[1] < 9999) ? ' · ⚫ BH ATIVO' : '';
     document.querySelector('.mcd-sub').textContent =
-      'JOGO '+(gameIdx+1)+'  ·  '+diffLabel+bhNote+'  ·  COMEÇA EM';
+      'JOGO '+(MATCH.game+1)+'  ·  D'+LOCAL_DIFF+' '+dcfg2.label+bhNote2+'  ·  COMEÇA EM';
   }
 
   let t = 20;
