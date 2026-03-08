@@ -1332,6 +1332,8 @@ function goGame(){
   document.getElementById('dpad-local').style.display='none';
   document.getElementById('dpad-net').style.display='block';
   updateHUD(); updateTimerDisplay();
+  // Force resize now that wrap is visible and layout is real
+  requestAnimationFrame(()=>{ resize(); requestAnimationFrame(resize); });
   showCountdown(()=>{
     G.running=true; lastTs=performance.now();
     cancelAnimationFrame(loopId);
@@ -1470,6 +1472,7 @@ function startMission(){
   document.getElementById('dpad-local').style.display='flex';
   document.getElementById('dpad-net').style.display='none';
   updateHUD(); updateTimerDisplay();
+  requestAnimationFrame(()=>{ resize(); requestAnimationFrame(resize); });
   showCountdown(()=>{
     G.running=true; lastTs=performance.now();
     cancelAnimationFrame(loopId);
@@ -1566,8 +1569,11 @@ document.getElementById('btn-next-game').addEventListener('click',()=>{
    RESIZE
 ═══════════════════════════════════════════════════════════ */
 function resize(){
+  const wrap = document.getElementById('wrap');
+  if(wrap.style.display === 'none') return; // not visible yet, skip
   const dH=document.getElementById('dpad-area').offsetHeight+6;
   const hH=document.getElementById('hud').offsetHeight||46;
+  if(hH < 10) return; // layout not settled, skip (rAF will retry)
   const s=Math.min((innerWidth-10)/W,(innerHeight-dH-hH-12)/H,2.1);
   gc.style.width=(W*s)+'px';gc.style.height=(H*s)+'px';
   document.getElementById('wrap').style.width=(W*s)+'px';
