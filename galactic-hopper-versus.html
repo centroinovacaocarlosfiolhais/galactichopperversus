@@ -359,17 +359,6 @@ canvas{display:block;image-rendering:pixelated}
     </div>
     <div id="result-reason" style="font-size:16px;letter-spacing:2px;color:rgba(255,200,100,.7)"></div>
     <div class="divl"></div>
-    <!-- Ladder summary (shown after online match ends) -->
-    <div id="ladder-summary" style="display:none;width:100%;max-width:520px;margin:6px 0">
-      <div class="lbl" style="text-align:center;margin-bottom:10px;letter-spacing:4px">🏆 PONTUAÇÃO TOTAL DA SÉRIE</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div class="ladder-card n1" id="ladder-p1"></div>
-        <div class="ladder-card n2" id="ladder-p2"></div>
-      </div>
-      <div class="lbl" style="text-align:center;margin-top:10px;font-size:10px;letter-spacing:2px;color:rgba(255,255,255,.3)">
-        Regista estes pontos na tabela do evento
-      </div>
-    </div>
     <div class="btn-row">
       <button class="btn" id="btn-rematch" style="display:none">↺ NOVA SÉRIE</button>
       <button class="btn" id="btn-next-game" style="display:none">▶ PRÓXIMO JOGO</button>
@@ -1501,14 +1490,15 @@ function renderDiffGrid(){
     const cfg = LOCAL_DIFF_CFG[d];
     const btn = document.createElement('button');
     btn.className = 'diff-btn d'+d;
-    btn.innerHTML = \`<span class="diff-num" style="color:\${cfg.color}">\${d}</span>
-      <span class="diff-info">
-        <span class="diff-name" style="color:\${cfg.color}">\${cfg.label}</span>
-        <span class="diff-desc">\${cfg.desc}</span>
-      </span>\`;
+    btn.innerHTML =
+      '<span class="diff-num" style="color:'+cfg.color+'">'+d+'</span>'+
+      '<span class="diff-info">'+
+        '<span class="diff-name" style="color:'+cfg.color+'">'+cfg.label+'</span>'+
+        '<span class="diff-desc">'+cfg.desc+'</span>'+
+      '</span>';
     btn.addEventListener('click', ()=>{
       LOCAL_DIFF = d;
-      LOCAL_SESSION = {p1pts:0, p2pts:0}; // reset session on new game
+      LOCAL_SESSION = {p1pts:0, p2pts:0};
       startMission();
     });
     grid.appendChild(btn);
@@ -1659,7 +1649,6 @@ function showResult(winner,reason){
   const titleEl  = document.getElementById('result-title');
   const labelEl  = document.getElementById('result-winner-label');
   const gameNumEl= document.getElementById('result-game-num');
-  const ladderEl = document.getElementById('ladder-summary');
   const rematchBtn  = document.getElementById('btn-rematch');
   const nextBtn     = document.getElementById('btn-next-game');
   const diffAgainBtn= document.getElementById('btn-diff-again');
@@ -1690,7 +1679,6 @@ function showResult(winner,reason){
     document.getElementById('ms-label').textContent='PONTOS ESTE JOGO';
 
     // Hide ladder (single game, no series to sum)
-    ladderEl.style.display='none';
     rematchBtn.style.display='none';
     nextBtn.style.display='none';
     diffAgainBtn.style.display='block';
@@ -1732,8 +1720,7 @@ function showResult(winner,reason){
     if(matchOver){
       // Collect totals from MATCH (we don't store per-game scores in series,
       // so use final game score as representative; operator records manually)
-      ladderEl.style.display='block';
-      const p1wins=MATCH.p1, p2wins=MATCH.p2;
+        const p1wins=MATCH.p1, p2wins=MATCH.p2;
       document.getElementById('ladder-p1').innerHTML=
         '<div class="ladder-breakdown">JOGADOR 1</div>'+
         '<div class="ladder-total">'+G.p1.score+'</div>'+
@@ -1745,8 +1732,7 @@ function showResult(winner,reason){
         '<div class="ladder-breakdown">pontos (jogo final)</div>'+
         '<div class="ladder-wins" style="color:var(--c2)">'+p2wins+' vitória'+(p2wins!==1?'s':'')+'</div>';
     } else {
-      ladderEl.style.display='none';
-    }
+      }
   }
 
   document.getElementById('scr-result').style.display='flex';
