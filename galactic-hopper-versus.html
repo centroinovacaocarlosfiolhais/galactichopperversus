@@ -1707,6 +1707,7 @@ function goGame(){
 
 document.getElementById('btn-lobby').addEventListener('click',()=>{
   Audio.btn();
+  Audio.stopFugue();
   document.getElementById('scr-title').style.display='none';
   goLobby();
 });
@@ -1719,7 +1720,6 @@ document.getElementById('btn-lobby2').addEventListener('click',()=>{
 });
 document.getElementById('btn-local').addEventListener('click',()=>{
   Audio.btn();
-  Audio.stopFugue();
   gameMode='local';
   showDiffSelect();
 });
@@ -1793,7 +1793,6 @@ function connectWS(){
         break;
 
       case'opponent_joined':
-        Audio.stopFugue();
         setNote('✅ Adversário ligado! A iniciar...','#00ff88');
         if(gameMode==='p1'){
           setTimeout(()=>{
