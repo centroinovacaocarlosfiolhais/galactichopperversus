@@ -524,6 +524,20 @@ let warpCool1=false,warpCool2=false;
 let warpInv1=false,warpInv2=false;
 let gravT1=0,gravT2=0,gravCool1=false,gravCool2=false;
 
+function makeBH(col){
+  const x=col*TILE+TILE/2, y=(ROWS-1)*TILE+TILE/2;
+  return {active:false,row:ROWS-1,col:col,px:x,py:y,spx:x,spy:y,epx:x,epy:y,timer:0,lerpT:1};
+}
+function makeBHs(){
+  // Online: 1 BH always; Local D4/D5: 2 BHs; otherwise 1
+  const two = gameMode==='local' && (LOCAL_DIFF===4||LOCAL_DIFF===5);
+  const bhs = [makeBH(P1_SC)];
+  if(two) bhs.push(makeBH(P2_SC));
+  // For online game>0 or local D4+, activate immediately
+  const startActive = gameMode!=='local' ? MATCH.game>0 : (LOCAL_DIFF>=4);
+  if(startActive) bhs.forEach(bh=>{ bh.active=true; });
+  return bhs;
+}
 function initG(seed){
   G={
     seed,level:1,timer:MISSION_SEC,running:false,
@@ -531,9 +545,7 @@ function initG(seed){
     p1:{row:ROWS-1,col:P1_SC,lives:NLIVES,score:0,glow:0,dying:0,dead:false},
     p2:{row:ROWS-1,col:P2_SC,lives:NLIVES,score:0,glow:0,dying:0,dead:false},
     bgStars:[],parts:[],
-    bh:{active:gameMode==='local'?false:MATCH.game>0,row:ROWS-1,col:0,px:TILE/2,py:(ROWS-1)*TILE+TILE/2,
-       spx:TILE/2,spy:(ROWS-1)*TILE+TILE/2,epx:TILE/2,epy:(ROWS-1)*TILE+TILE/2,
-       timer:0,lerpT:1},
+    bhs: makeBHs(), // array of 1 or 2 black holes depending on difficulty
     lvlFlash:0, warpFx1:0, warpFx2:0,
   };
   bayFlash=[0,0,0,0,0];
@@ -638,9 +650,11 @@ function updateHUD(){
   });
   document.getElementById('lvlbadge').textContent='NV.'+G.level;
   const p=G.bays.filter(b=>b===1).length,q=G.bays.filter(b=>b===2).length;
-  const bhDist=G.bh.active?Math.abs(G.bh.row-G.p1.row)+Math.abs(G.bh.col-G.p1.col):99;
-  const bhDist2=G.bh.active?Math.abs(G.bh.row-G.p2.row)+Math.abs(G.bh.col-G.p2.col):99;
-  document.getElementById('bhwarn').style.display=(G.bh.active&&(bhDist<=4||bhDist2<=4))?'block':'none';
+  const anyBH=G.bhs.some(b=>b.active);
+  const bhClose=anyBH&&G.bhs.some(b=>b.active&&(
+    Math.abs(b.row-G.p1.row)+Math.abs(b.col-G.p1.col)<=4||
+    Math.abs(b.row-G.p2.row)+Math.abs(b.col-G.p2.col)<=4));
+  document.getElementById('bhwarn').style.display=bhClose?'block':'none';
 }
 function renderLives(id,n,pid){
   const el=document.getElementById(id);el.innerHTML='';
@@ -862,9 +876,8 @@ function drawObs(o){
 /* ═══════════════════════════════════════════════════════════
    DRAW: BLACK HOLE
 ═══════════════════════════════════════════════════════════ */
-function drawBH(){
-  if(!G.bh.active)return;
-  const t=Date.now()/1000,bh=G.bh,R=TILE*.38;
+function drawOneBH(bh){
+  const t=Date.now()/1000,R=TILE*.38;
   if(bh.lerpT<1){bh.lerpT=Math.min(1,bh.lerpT+.06);
     const e=1-Math.pow(1-bh.lerpT,3);
     bh.px=bh.spx+(bh.epx-bh.spx)*e;bh.py=bh.spy+(bh.epy-bh.spy)*e;}
@@ -872,16 +885,20 @@ function drawBH(){
   for(let i=0;i<20;i++){
     const a=i/20*TAU+t*.7,dr=R*1.5+Math.sin(i*.7+t*3)*R*.18;
     const px=Math.cos(a)*dr*1.2,py=Math.sin(a)*dr*.5;
-    ctx.fillStyle=i%2===0?'rgba(255,115,0,'+(.68+.28*Math.sin(i+t*3))+')':'rgba(255,50,0,'+(.6+.2*Math.sin(i+t*3))+')';
-    ctx.shadowColor='#ff6600';ctx.shadowBlur=8;ctx.beginPath();ctx.arc(px,py,2.4+1.2*Math.sin(i*.5+t*4),0,TAU);ctx.fill();
+    ctx.fillStyle=i%2===0?'rgba(255,115,0,'+(.68+.28*Math.sin(i+t*3))+')'
+                         :'rgba(255,50,0,'+(.6+.2*Math.sin(i+t*3))+')';
+    ctx.shadowColor='#ff6600';ctx.shadowBlur=8;
+    ctx.beginPath();ctx.arc(px,py,2.4+1.2*Math.sin(i*.5+t*4),0,TAU);ctx.fill();
   }
   const vg=ctx.createRadialGradient(0,0,0,0,0,R);
   vg.addColorStop(0,'rgba(0,0,0,1)');vg.addColorStop(.7,'rgba(0,0,0,.96)');vg.addColorStop(1,'rgba(0,0,0,.22)');
   ctx.shadowBlur=0;ctx.fillStyle=vg;ctx.beginPath();ctx.arc(0,0,R,0,TAU);ctx.fill();
-  ctx.strokeStyle='rgba(255,88,0,'+(.36+.26*Math.sin(t*2))+')';ctx.lineWidth=2;ctx.shadowColor='#ff6600';ctx.shadowBlur=6;
+  ctx.strokeStyle='rgba(255,88,0,'+(.36+.26*Math.sin(t*2))+')';ctx.lineWidth=2;
+  ctx.shadowColor='#ff6600';ctx.shadowBlur=6;
   ctx.beginPath();ctx.arc(0,0,R*.9,0,TAU);ctx.stroke();
   ctx.restore();
 }
+function drawBH(){ G.bhs.forEach(bh=>{ if(bh.active) drawOneBH(bh); }); }
 
 /* ═══════════════════════════════════════════════════════════
    DRAW: PLAYER SHIP
@@ -929,10 +946,10 @@ function drawOverlays(){
   if(G.warpFx1>0){ctx.save();ctx.globalAlpha=(G.warpFx1/30)*.44;ctx.fillStyle='#4400ee';ctx.fillRect(0,0,W,H);ctx.restore();G.warpFx1--;}
   if(G.warpFx2>0){ctx.save();ctx.globalAlpha=(G.warpFx2/30)*.44;ctx.fillStyle='#ee0066';ctx.fillRect(0,0,W,H);ctx.restore();G.warpFx2--;}
   // BH vignette
-  if(G.bh.active){
-    const d1=Math.abs(G.bh.row-G.p1.row)+Math.abs(G.bh.col-G.p1.col);
-    const d2=Math.abs(G.bh.row-G.p2.row)+Math.abs(G.bh.col-G.p2.col);
-    if(d1<=4||d2<=4){
+  if(G.bhs.some(b=>b.active&&(
+      Math.abs(b.row-G.p1.row)+Math.abs(b.col-G.p1.col)<=4||
+      Math.abs(b.row-G.p2.row)+Math.abs(b.col-G.p2.col)<=4))){
+    {
       const a=.08+.06*Math.sin(Date.now()/130);
       const g=ctx.createRadialGradient(W/2,H/2,H*.15,W/2,H/2,H*.72);
       g.addColorStop(0,'rgba(255,0,0,0)');g.addColorStop(1,'rgba(140,0,0,'+a+')');
@@ -983,13 +1000,14 @@ function checkHits(){
 }
 
 function checkBH(){
-  if(!G.bh.active)return;
-  const bh=G.bh;
-  [G.p1,G.p2].forEach((pl,idx)=>{
-    const pid=idx+1;
-    if(pl.dead||pl.dying>0)return;
-    if(pid===1&&warpInv1)return;if(pid===2&&warpInv2)return;
-    if(bh.row===pl.row&&bh.col===pl.col)killPlayer(pid);
+  G.bhs.forEach(bh=>{
+    if(!bh.active)return;
+    [G.p1,G.p2].forEach((pl,idx)=>{
+      const pid=idx+1;
+      if(pl.dead||pl.dying>0)return;
+      if(pid===1&&warpInv1)return;if(pid===2&&warpInv2)return;
+      if(bh.row===pl.row&&bh.col===pl.col)killPlayer(pid);
+    });
   });
 }
 
@@ -1150,15 +1168,10 @@ function bhInterval(){
   if(MATCH.game===0) return BH_INT[Math.min(G.level,3)];
   return GAME_BH[Math.min(MATCH.game, GAME_BH.length-1)];
 }
-function tickBH(dt){
-  if(!G.bh.active)return;
-  const bh=G.bh;
-  bh.timer+=dt;
+function tickOneBH(bh, target){
+  bh.timer++;
   if(bh.timer>=bhInterval()){
     bh.timer=0;
-    // Target the player with MORE bays (to balance the game)
-    const p1b=G.bays.filter(b=>b===1).length,p2b=G.bays.filter(b=>b===2).length;
-    const target=p1b>=p2b?G.p1:G.p2;
     const dr=Math.sign(target.row-bh.row),dc=Math.sign(target.col-bh.col);
     let nr=bh.row,nc=bh.col;
     if(dr!==0&&(dc===0||Math.random()<.6))nr+=dr;else if(dc!==0)nc+=dc;else if(dr!==0)nr+=dr;
@@ -1166,6 +1179,18 @@ function tickBH(dt){
     bh.spx=bh.px;bh.spy=bh.py;
     bh.epx=nc*TILE+TILE/2;bh.epy=nr*TILE+TILE/2;
     bh.lerpT=0;bh.row=nr;bh.col=nc;
+  }
+}
+function tickBH(dt){
+  if(!G.bhs.some(b=>b.active)) return;
+  const p1b=G.bays.filter(b=>b===1).length,p2b=G.bays.filter(b=>b===2).length;
+  if(G.bhs.length===1){
+    // Single BH targets the leader
+    tickOneBH(G.bhs[0], p1b>=p2b?G.p1:G.p2);
+  } else {
+    // Two BHs: first targets P1, second targets P2
+    tickOneBH(G.bhs[0], G.p1);
+    tickOneBH(G.bhs[1], G.p2);
   }
 }
 
@@ -1209,10 +1234,10 @@ function tickTimer(ts){
       rebuildObs(tgtLvl);rebuildWH(tgtLvl);
       G.lvlFlash=55;
       // Activate BH at level 3
-      if(tgtLvl===3&&!G.bh.active){
-        G.bh.active=true;
-        G.bh.px=P1_SC*TILE+TILE/2;G.bh.py=(ROWS-1)*TILE+TILE/2;
-        G.bh.row=ROWS-1;G.bh.col=P1_SC;
+      // Activate BHs at level 3 — but only if bhInterval() allows it
+      if(tgtLvl===3){
+        const bhi=bhInterval();
+        if(bhi<999) G.bhs.forEach(bh=>{ bh.active=true; });
       }
       showLvlFlashUI(tgtLvl);
       if(gameMode==='p1')net.send({t:'level',lvl:tgtLvl});
@@ -1346,7 +1371,7 @@ function handleNetMsg(msg){
       {const rdp=gameMode==='p1'?G.p2:G.p1; rdp.lives=msg.lives; updateHUD(); checkWin();} break;
     case'level':
       G.level=msg.lvl; rebuildObs(msg.lvl); rebuildWH(msg.lvl); G.lvlFlash=55;
-      if(msg.lvl===3&&!G.bh.active){G.bh.active=true;G.bh.px=TILE/2;G.bh.py=(ROWS-1)*TILE+TILE/2;}
+      if(msg.lvl===3){ const bhi=bhInterval(); if(bhi<999) G.bhs.forEach(bh=>{bh.active=true;}); }
       showLvlFlashUI(msg.lvl); break;
     case'end':setTimeout(()=>showResult(msg.winner,msg.reason),600); break;
   }
@@ -1365,16 +1390,20 @@ function onDisconnect(){
 ═══════════════════════════════════════════════════════════ */
 function tick(ts){
   if(!G.running)return;
-  const dt=Math.min((ts-lastTs)/16.67,3);lastTs=ts;
-  tickObs(dt);tickBH(dt);tickParts();tickTimer(ts);
-  checkGravity(dt);checkHits();checkBH();
-  if(G.p1.dying>0)G.p1.dying-=dt;if(G.p2.dying>0)G.p2.dying-=dt;
-  if(G.p1.glow>0)G.p1.glow=Math.max(0,G.p1.glow-.06*dt);
-  if(G.p2.glow>0)G.p2.glow=Math.max(0,G.p2.glow-.06*dt);
-  drawBG();drawRows();drawMothership();drawWormholes();
-  obs.forEach(drawObs);drawBH();
-  drawShip(G.p2,2);drawShip(G.p1,1); // P1 drawn on top
-  drawParts();drawOverlays();
+  try{
+    const dt=Math.min((ts-lastTs)/16.67,3);lastTs=ts;
+    tickObs(dt);tickBH(dt);tickParts();tickTimer(ts);
+    checkGravity(dt);checkHits();checkBH();
+    if(G.p1.dying>0)G.p1.dying-=dt;if(G.p2.dying>0)G.p2.dying-=dt;
+    if(G.p1.glow>0)G.p1.glow=Math.max(0,G.p1.glow-.06*dt);
+    if(G.p2.glow>0)G.p2.glow=Math.max(0,G.p2.glow-.06*dt);
+    drawBG();drawRows();drawMothership();drawWormholes();
+    obs.forEach(drawObs);drawBH();
+    drawShip(G.p2,2);drawShip(G.p1,1);
+    drawParts();drawOverlays();
+  }catch(e){
+    console.error('tick error:', e);
+  }
   loopId=requestAnimationFrame(tick);
 }
 
