@@ -524,15 +524,17 @@ let warpCool1=false,warpCool2=false;
 let warpInv1=false,warpInv2=false;
 let gravT1=0,gravT2=0,gravCool1=false,gravCool2=false;
 
-function makeBH(col){
-  const x=col*TILE+TILE/2, y=(ROWS-1)*TILE+TILE/2;
-  return {active:false,row:ROWS-1,col:col,px:x,py:y,spx:x,spy:y,epx:x,epy:y,timer:0,lerpT:1};
+function makeBH(col, row){
+  row = row||2;
+  const x=col*TILE+TILE/2, y=row*TILE+TILE/2;
+  return {active:false,row:row,col:col,px:x,py:y,spx:x,spy:y,epx:x,epy:y,timer:0,lerpT:1};
 }
 function makeBHs(){
   // Online: 1 BH always; Local D4/D5: 2 BHs; otherwise 1
   const two = gameMode==='local' && (LOCAL_DIFF===4||LOCAL_DIFF===5);
-  const bhs = [makeBH(P1_SC)];
-  if(two) bhs.push(makeBH(P2_SC));
+  // Spawn near top — use bays 1 and 3 (cols 5 and 13), row 2
+  const bhs = [makeBH(BAY_COLS[1], 2)];
+  if(two) bhs.push(makeBH(BAY_COLS[3], 2));
   // For online game>0 or local D4+, activate immediately
   const startActive = gameMode!=='local' ? MATCH.game>0 : (LOCAL_DIFF>=4);
   if(startActive) bhs.forEach(bh=>{ bh.active=true; });
