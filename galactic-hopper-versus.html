@@ -233,6 +233,48 @@ canvas{display:block;image-rendering:pixelated}
 .ladder-card.n2 .ladder-total{color:var(--c2);text-shadow:0 0 12px var(--c2)}
 .ladder-breakdown{font-size:11px;letter-spacing:1px;color:rgba(255,255,255,.45);line-height:1.8}
 .ladder-wins{font-size:13px;letter-spacing:2px;font-weight:700;margin-top:2px}
+
+/* ── SCOREBOARD MODAL ── */
+#modal-scoreboard{position:fixed;inset:0;background:rgba(0,0,5,.92);display:none;
+  flex-direction:column;align-items:center;justify-content:center;z-index:998;
+  font-family:'Orbitron',monospace;}
+#modal-scoreboard.show{display:flex}
+.msb-title{font-size:clamp(16px,4vw,28px);font-weight:900;letter-spacing:6px;
+  color:rgba(255,255,255,.9);margin-bottom:6px}
+.msb-sub{font-size:12px;letter-spacing:4px;color:rgba(0,255,255,.5);margin-bottom:20px}
+.msb-table{width:90%;max-width:480px;border-collapse:collapse;margin-bottom:20px}
+.msb-table th{font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.4);
+  padding:4px 10px;text-align:center;border-bottom:1px solid rgba(255,255,255,.1)}
+.msb-table td{font-size:15px;font-weight:700;padding:7px 10px;text-align:center;
+  font-family:'Orbitron',monospace}
+.msb-table .game-row:nth-child(even){background:rgba(255,255,255,.03)}
+.msb-table .total-row td{border-top:1px solid rgba(255,255,255,.2);
+  font-size:18px;color:rgba(255,255,255,.9);padding-top:10px}
+.msb-table .winner-cell{color:#ffdd00;text-shadow:0 0 8px #ffaa00}
+.msb-table .p1-col{color:var(--c1)}
+.msb-table .p2-col{color:var(--c2)}
+.msb-starting{font-size:13px;letter-spacing:3px;color:rgba(0,255,255,.5);margin-top:4px}
+
+/* ── SCOREBOARD MODAL ── */
+#modal-scoreboard{position:fixed;inset:0;background:rgba(0,0,5,.94);display:none;
+  flex-direction:column;align-items:center;justify-content:center;z-index:998;
+  font-family:'Orbitron',monospace;padding:20px}
+#modal-scoreboard.show{display:flex}
+.msb-title{font-size:clamp(16px,3.5vw,26px);font-weight:900;letter-spacing:6px;
+  color:rgba(255,255,255,.9);margin-bottom:4px;text-align:center}
+.msb-sub{font-size:11px;letter-spacing:3px;color:rgba(0,255,255,.5);margin-bottom:18px;text-align:center}
+.msb-table{width:100%;max-width:500px;border-collapse:collapse;margin-bottom:16px}
+.msb-table th{font-size:10px;letter-spacing:2px;color:rgba(255,255,255,.4);
+  padding:5px 8px;text-align:center;border-bottom:1px solid rgba(255,255,255,.12)}
+.msb-table th.p1h{color:var(--c1)}.msb-table th.p2h{color:var(--c2)}
+.msb-table td{font-size:14px;font-weight:700;padding:6px 8px;text-align:center;
+  font-family:'Orbitron',monospace;color:rgba(255,255,255,.7)}
+.msb-table tr.game-row:nth-child(even) td{background:rgba(255,255,255,.03)}
+.msb-table tr.total-row td{border-top:1px solid rgba(255,255,255,.18);
+  font-size:17px;color:rgba(255,255,255,.95);padding-top:10px}
+.msb-table .hi{color:#ffdd00;text-shadow:0 0 8px #ffaa00}
+.msb-table .p1v{color:var(--c1)}.msb-table .p2v{color:var(--c2)}
+.msb-starting{font-size:12px;letter-spacing:3px;color:rgba(0,255,255,.45);margin-top:4px;text-align:center}
 </style>
 </head>
 <body>
@@ -369,6 +411,33 @@ canvas{display:block;image-rendering:pixelated}
 </div>
 
 
+
+<!-- ═══ SCOREBOARD MODAL ════════════════════════════════════════ -->
+<div id="modal-scoreboard">
+  <div class="msb-title">PONTUAÇÃO DA SÉRIE</div>
+  <div class="msb-sub" id="msb-sub"></div>
+  <table class="msb-table">
+    <thead>
+      <tr>
+        <th>JOGO</th>
+        <th class="p1h">J1</th>
+        <th class="p2h">J2</th>
+        <th>VENCEDOR</th>
+      </tr>
+    </thead>
+    <tbody id="msb-body"></tbody>
+    <tfoot>
+      <tr class="total-row">
+        <td>TOTAL</td>
+        <td class="p1v" id="msb-tot1">0</td>
+        <td class="p2v" id="msb-tot2">0</td>
+        <td id="msb-lead">—</td>
+      </tr>
+    </tfoot>
+  </table>
+  <div class="msb-starting" id="msb-starting"></div>
+</div>
+
 <!-- ═══ COUNTDOWN MODAL ═════════════════════════════════════════ -->
 <div id="modal-countdown">
   <div class="mcd-title">MISSÃO BRIEFING</div>
@@ -408,7 +477,8 @@ const GAME_SPD  = [1.0, 1.2, 1.4, 1.6, 1.85];
 // BH interval per game (null = inactive at game start for that game)
 const GAME_BH   = [null, 140, 100, 70, 50];
 
-let MATCH = {p1:0, p2:0, game:0}; // online match state
+let MATCH = {p1:0, p2:0, game:0, scores:[]}; // online match state
+// scores: [{p1, p2, winner}, ...] per game
 let LOCAL_SESSION = {p1pts:0, p2pts:0}; // local cumulative score (single game, no series)
 const CENTER_X=W/2;               // 9.5*TILE = 323
 
@@ -1343,7 +1413,7 @@ gc.addEventListener('touchend',e=>{
 function handleNetMsg(msg){
   switch(msg.t){
     case'start':
-      MATCH={p1:0,p2:0,game:0}; // P2 resets match on fresh start
+      MATCH={p1:0,p2:0,game:0,scores:[]}; // P2 resets match on fresh start
       G.seed=msg.seed; initG(msg.seed); lastSecTs=performance.now();
       goGame(); break;
     case'next':
@@ -1352,7 +1422,7 @@ function handleNetMsg(msg){
       G.seed=msg.seed; initG(msg.seed); lastSecTs=performance.now();
       document.getElementById('scr-result').style.display='none';
       document.getElementById('scr-lobby').style.display='none';
-      goGame(); break;
+      showScoreboard(()=>goGame()); break;
     case'pos':
       {const rp=gameMode==='p1'?G.p2:G.p1; rp.row=msg.r; rp.col=msg.c;} break;
     case'dock':
@@ -1716,6 +1786,13 @@ function showResult(winner,reason){
 
   // ── ONLINE MODE: best-of-3 series ─────────────────────────────
   } else {
+    // +500 bonus to winner
+    if(winner===1) G.p1.score+=500;
+    else if(winner===2) G.p2.score+=500;
+
+    // Record this game's scores
+    MATCH.scores.push({p1:G.p1.score, p2:G.p2.score, winner});
+
     if(winner===1) MATCH.p1++;
     else if(winner===2) MATCH.p2++;
     MATCH.game++;
@@ -1743,25 +1820,65 @@ function showResult(winner,reason){
         ? (MATCH.p1>=WINS_NEEDED?'J1':'J2')+' VENCEU  '+MATCH.p1+'-'+MATCH.p2
         : 'SÉRIE  J1 '+MATCH.p1+' · J2 '+MATCH.p2+'  (primeiro a '+WINS_NEEDED+')';
 
+    // Update rsc with bonus included
+    document.getElementById('rsc1').textContent=G.p1.score+' pts';
+    document.getElementById('rsc2').textContent=G.p2.score+' pts';
+
     rematchBtn.style.display   = matchOver ? 'block' : 'none';
     nextBtn.style.display      = matchOver ? 'none'  : 'block';
     diffAgainBtn.style.display = 'none';
-
-
   }
 
   document.getElementById('scr-result').style.display='flex';
   makeStarfield(document.getElementById('result-bg'));
 }
 
+function showScoreboard(onDone){
+  if(gameMode==='local'||MATCH.scores.length===0){ onDone(); return; }
+  const modal = document.getElementById('modal-scoreboard');
+  const body  = document.getElementById('msb-body');
+  const gameIdx = MATCH.game; // about to start game N (0-based)
+  const diffLabels=['NORMAL','RÁPIDO ⚡','VELOZ ⚡⚡','INSANO ⚡⚡⚡','CAOS ⚡⚡⚡⚡'];
+  document.getElementById('msb-sub').textContent=
+    'SÉRIE · '+diffLabels[Math.min(gameIdx,diffLabels.length-1)]+
+    '  |  J1 '+MATCH.p1+' vs J2 '+MATCH.p2+'  (primeiro a '+WINS_NEEDED+')';
+
+  // Build rows
+  body.innerHTML='';
+  let tot1=0, tot2=0;
+  MATCH.scores.forEach((s,i)=>{
+    const w = s.winner;
+    const r = document.createElement('tr');
+    r.className='game-row';
+    r.innerHTML=
+      '<td style="color:rgba(255,255,255,.4);font-size:12px">JOGO '+(i+1)+'</td>'+
+      '<td class="'+(w===1?'hi p1v':'p1v')+'">'+s.p1+'</td>'+
+      '<td class="'+(w===2?'hi p2v':'p2v')+'">'+s.p2+'</td>'+
+      '<td style="font-size:11px;letter-spacing:1px;color:'+(w===1?'var(--c1)':w===2?'var(--c2)':'rgba(255,255,255,.3)')+'">'+
+        (w===1?'J1 ★':w===2?'J2 ★':'EMPATE')+'</td>';
+    body.appendChild(r);
+    tot1+=s.p1; tot2+=s.p2;
+  });
+
+  document.getElementById('msb-tot1').textContent=tot1;
+  document.getElementById('msb-tot2').textContent=tot2;
+  const lead = tot1>tot2?'J1 lidera':tot2>tot1?'J2 lidera':'Empatados';
+  document.getElementById('msb-lead').textContent=lead;
+  document.getElementById('msb-starting').textContent='JOGO '+(gameIdx+1)+' COMEÇA EM BREVE...';
+
+  modal.classList.add('show');
+  setTimeout(()=>{ modal.classList.remove('show'); onDone(); }, 5000);
+}
+
 function startNextGame(resetMatch){
   document.getElementById('scr-result').style.display='none';
-  if(resetMatch){ MATCH={p1:0,p2:0,game:0}; }
+  if(resetMatch){ MATCH={p1:0,p2:0,game:0,scores:[]}; }
   // MATCH.game is now incremented inside showResult for online
   if(gameMode==='p1'){
     const seed=Math.floor(Math.random()*0xffffff);
     net.send({t:'next',seed,match:MATCH});
-    G.seed=seed; initG(seed); lastSecTs=performance.now(); goGame();
+    G.seed=seed; initG(seed); lastSecTs=performance.now();
+    showScoreboard(()=>goGame());
   } else {
     // P2 waits for P1 to trigger
     hideAll(); document.getElementById('scr-lobby').style.display='flex';
