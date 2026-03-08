@@ -435,6 +435,168 @@ canvas{display:block;image-rendering:pixelated}
 </div>
 
 <script>
+
+/* ═══════════════════════════════════════════════════════════
+   AUDIO ENGINE — Web Audio API, no files
+═══════════════════════════════════════════════════════════ */
+const Audio = (()=>{
+  let ctx = null;
+  function ac(){
+    if(!ctx){ ctx = new (window.AudioContext||window.webkitAudioContext)(); }
+    if(ctx.state==='suspended') ctx.resume();
+    return ctx;
+  }
+
+  // Generic synth note: type, freq, attack, decay, vol, detune
+  function play(type, freq, attack, decay, vol=0.18, filter=null){
+    const c=ac(), now=c.currentTime;
+    const osc=c.createOscillator(), gain=c.createGain();
+    osc.type=type; osc.frequency.setValueAtTime(freq,now);
+    if(filter){
+      const f=c.createBiquadFilter();f.type='highpass';f.frequency.value=filter;
+      osc.connect(f);f.connect(gain);
+    } else { osc.connect(gain); }
+    gain.connect(c.destination);
+    gain.gain.setValueAtTime(0,now);
+    gain.gain.linearRampToValueAtTime(vol,now+attack);
+    gain.gain.exponentialRampToValueAtTime(0.001,now+attack+decay);
+    osc.start(now); osc.stop(now+attack+decay+0.05);
+  }
+
+  function noise(decay, vol=0.12, hpFreq=1200){
+    const c=ac(), now=c.currentTime;
+    const buf=c.createBuffer(1,c.sampleRate*decay,c.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1);
+    const src=c.createBufferSource(), hp=c.createBiquadFilter(), gain=c.createGain();
+    src.buffer=buf; hp.type='highpass'; hp.frequency.value=hpFreq;
+    src.connect(hp); hp.connect(gain); gain.connect(c.destination);
+    gain.gain.setValueAtTime(vol,now);
+    gain.gain.exponentialRampToValueAtTime(0.001,now+decay);
+    src.start(now);
+  }
+
+  // ── Public sound events ──────────────────────────────────────
+  return {
+    move(){   play('sine',  440, 0.005, 0.06, 0.06); },
+    warp(){
+      const c=ac(), now=c.currentTime;
+      const osc=c.createOscillator(), gain=c.createGain();
+      osc.type='sawtooth';
+      osc.frequency.setValueAtTime(80,now);
+      osc.frequency.exponentialRampToValueAtTime(1400,now+0.25);
+      gain.gain.setValueAtTime(0.22,now);
+      gain.gain.exponentialRampToValueAtTime(0.001,now+0.3);
+      osc.connect(gain); gain.connect(c.destination);
+      osc.start(now); osc.stop(now+0.35);
+    },
+    explode(){
+      noise(0.55, 0.28, 120);
+      play('sawtooth',55,0.005,0.45,0.15);
+    },
+    dock(){
+      // Rising 2-note chime
+      const c=ac(), now=c.currentTime;
+      [523.25,783.99].forEach((f,i)=>{
+        const osc=c.createOscillator(),gain=c.createGain();
+        osc.type='triangle'; osc.frequency.value=f;
+        gain.gain.setValueAtTime(0,now+i*0.08);
+        gain.gain.linearRampToValueAtTime(0.2,now+i*0.08+0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001,now+i*0.08+0.3);
+        osc.connect(gain); gain.connect(c.destination);
+        osc.start(now+i*0.08); osc.stop(now+i*0.08+0.35);
+      });
+    },
+    steal(){
+      // Descending then ascending — dramatic steal
+      const c=ac(), now=c.currentTime;
+      [880,659.25,783.99,1046.5].forEach((f,i)=>{
+        const osc=c.createOscillator(),gain=c.createGain();
+        osc.type='square'; osc.frequency.value=f;
+        gain.gain.setValueAtTime(0,now+i*0.055);
+        gain.gain.linearRampToValueAtTime(0.12,now+i*0.055+0.008);
+        gain.gain.exponentialRampToValueAtTime(0.001,now+i*0.055+0.12);
+        osc.connect(gain); gain.connect(c.destination);
+        osc.start(now+i*0.055); osc.stop(now+i*0.055+0.15);
+      });
+    },
+    hit(){
+      noise(0.12,0.18,600);
+      play('square',180,0.003,0.08,0.1);
+    },
+    btn(){
+      play('square',1200,0.002,0.04,0.07,800);
+    },
+    // ── Title screen: C major fugue (Bach-ish, 3 voices) ────────
+    _fugueHandle: null,
+    startFugue(){
+      if(this._fugueHandle) return;
+      const C=ac();
+      // C major scale degrees → frequencies (C4 base)
+      const note=(n,oct=4)=>({C:261.63,D:293.66,E:329.63,F:349.23,G:392,A:440,B:493.88}[n]*(oct===4?1:oct===5?2:0.5));
+      // Subject: C D E G (classic fugue head)
+      const subject=[
+        {n:'C',o:4,dur:0.35},{n:'D',o:4,dur:0.18},{n:'E',o:4,dur:0.18},
+        {n:'G',o:4,dur:0.35},{n:'E',o:4,dur:0.18},{n:'D',o:4,dur:0.18},
+        {n:'C',o:4,dur:0.35},{n:'G',o:3,dur:0.5},
+      ];
+      const answer=[  // Answer at fifth (starts on G)
+        {n:'G',o:4,dur:0.35},{n:'A',o:4,dur:0.18},{n:'B',o:4,dur:0.18},
+        {n:'D',o:5,dur:0.35},{n:'B',o:4,dur:0.18},{n:'A',o:4,dur:0.18},
+        {n:'G',o:4,dur:0.35},{n:'D',o:4,dur:0.5},
+      ];
+      const counter=[ // Countersubject (against answer)
+        {n:'E',o:5,dur:0.18},{n:'D',o:5,dur:0.18},{n:'C',o:5,dur:0.18},{n:'B',o:4,dur:0.18},
+        {n:'A',o:4,dur:0.18},{n:'G',o:4,dur:0.18},{n:'F',o:4,dur:0.18},{n:'E',o:4,dur:0.18},
+        {n:'D',o:4,dur:0.35},{n:'E',o:4,dur:0.18},{n:'F',o:4,dur:0.18},{n:'G',o:4,dur:0.5},
+      ];
+
+      let voices = [];
+      function schedVoice(pattern, startDelay, type, vol, oct_shift=0){
+        let t = C.currentTime + startDelay;
+        let nodes = [];
+        const loop = ()=>{
+          pattern.forEach(ev=>{
+            const freq = note(ev.n, ev.o + oct_shift);
+            const osc=C.createOscillator(), gain=C.createGain();
+            osc.type=type; osc.frequency.value=freq;
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.linearRampToValueAtTime(vol, t+0.015);
+            gain.gain.exponentialRampToValueAtTime(0.001, t+ev.dur*0.88);
+            osc.connect(gain); gain.connect(C.destination);
+            osc.start(t); osc.stop(t+ev.dur);
+            nodes.push({osc,gain,until:t+ev.dur});
+            t+=ev.dur;
+          });
+        };
+        // Play 2 cycles then loop
+        loop(); loop();
+        return {nodes, nextAt: t};
+      }
+
+      const totalDur = subject.reduce((a,e)=>a+e.dur,0)*2;
+      // Voice 1: subject (sine, starts now)
+      const v1 = schedVoice(subject,     0,     'sine',     0.13);
+      // Voice 2: answer (triangle, starts after subject exposition)
+      const v2 = schedVoice(answer,      totalDur*0.5, 'triangle', 0.10);
+      // Voice 3: countersubject (sawtooth low, starts after v2)
+      const v3 = schedVoice(counter,     totalDur,     'sawtooth', 0.05, -1);
+
+      // Schedule indefinite looping via setTimeout
+      const loopAll = ()=>{
+        const now = C.currentTime;
+        schedVoice(subject,  0,            'sine',     0.13);
+        schedVoice(answer,   totalDur*0.5, 'triangle', 0.10);
+        schedVoice(counter,  totalDur,     'sawtooth', 0.05, -1);
+      };
+      this._fugueHandle = setInterval(loopAll, (totalDur*2.5)*1000);
+    },
+    stopFugue(){
+      if(this._fugueHandle){ clearInterval(this._fugueHandle); this._fugueHandle=null; }
+    },
+  };
+})();
+
 'use strict';
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS
@@ -1038,7 +1200,7 @@ function checkHits(){
       if(o.r!==pl.row)continue;
       const oy=o.r*TILE+(TILE-o.h)/2;
       if(px2>o.x+4&&px1<o.x+o.w-4&&py2>oy+2&&py1<oy+o.h-2){
-        killPlayer(pid);return;
+        Audio.hit(); killPlayer(pid);return;
       }
     }
   });
@@ -1059,6 +1221,7 @@ function checkBH(){
 function killPlayer(pid){
   const pl=pid===1?G.p1:G.p2;
   if(pl.dead)return;
+  Audio.explode();
   pl.dead=true;pl.dying=75;pl.lives--;
   boom(pl.col*TILE+TILE/2,pl.row*TILE+TILE/2,pid===1?[P1C,'#ffffff','#00aaff']:[P2C,'#ffffff','#ff00aa']);
   updateHUD();
@@ -1122,7 +1285,8 @@ function checkWormholes(pid){
         G['warpFx'+pid]=32;
         if(pid===1)warpInv1=true;else warpInv2=true;
         if(pid===1)warpCool1=true;else warpCool2=true;
-        boom(pl.col*TILE+TILE/2,pl.row*TILE+TILE/2,[w.col,'#ffffff',w.col]);
+        Audio.warp();
+      boom(pl.col*TILE+TILE/2,pl.row*TILE+TILE/2,[w.col,'#ffffff',w.col]);
         G['p'+pid].score+=30;updateHUD();
         setTimeout(()=>{if(pid===1)warpInv1=false;else warpInv2=false;},850);
         setTimeout(()=>{if(pid===1)warpCool1=false;else warpCool2=false;},950);
@@ -1182,6 +1346,7 @@ function applyDock(pid,bayIdx){
   const cur=G.bays[bayIdx];
   if(cur===pid)return; // already mine
   const stolen=cur!==0;
+  if(stolen) Audio.steal(); else Audio.dock();
   G.bays[bayIdx]=pid;
   bayFlash[bayIdx]=28;
   const sc=pid===1?[P1C,'#ffffff',P1C]:[P2C,'#ffffff',P2C];
@@ -1304,6 +1469,7 @@ function movePlayer(pl,pid,dir){
   if(dir==='right'&&pl.col<COLS-1)pl.col++;
   if(pl.row===pr&&pl.col===pc)return;
   pl.glow=1.1;
+  Audio.move();
   if(dir==='up')G['p'+pid].score+=5;
   if(gameMode!=='local')net.send({t:'pos',r:pl.row,c:pl.col});
   checkWormholes(pid);
@@ -1524,16 +1690,20 @@ function goGame(){
 }
 
 document.getElementById('btn-lobby').addEventListener('click',()=>{
+  Audio.btn();
+  Audio.stopFugue();
   document.getElementById('scr-title').style.display='none';
   goLobby();
 });
 document.getElementById('btn-lobby2').addEventListener('click',()=>{
+  Audio.btn();
   document.getElementById('modal-scoreboard').classList.remove('show');
   net.send({t:'leave_table'});
   document.getElementById('scr-result').style.display='none';
   goLobby();
 });
 document.getElementById('btn-local').addEventListener('click',()=>{
+  Audio.btn();
   gameMode='local';
   showDiffSelect();
 });
@@ -1559,6 +1729,7 @@ function renderDiffGrid(){
         '<span class="diff-desc">'+cfg.desc+'</span>'+
       '</span>';
     btn.addEventListener('click', ()=>{
+      Audio.btn();
       LOCAL_DIFF = d;
       LOCAL_SESSION = {p1pts:0, p2pts:0};
       startMission();
@@ -1568,6 +1739,7 @@ function renderDiffGrid(){
 }
 
 document.getElementById('btn-diff-back').addEventListener('click',()=>{
+  Audio.btn();
   hideAll();
   document.getElementById('scr-lobby').style.display='flex';
 });
@@ -1667,7 +1839,7 @@ function renderTables(){
         <div class="pip ${st==='full'?'on2':''}"></div>
       </div>
       <div class="t-label">${mine?'← TUA MESA':st==='empty'?'LIVRE':st==='waiting'?'1 JOGADOR':'2 JOGADORES'}</div>`;
-    if(!mine&&st!=='full') d.addEventListener('click',()=>net.send({t:'join_table',index:i}));
+    if(!mine&&st!=='full') d.addEventListener('click',()=>{ Audio.btn(); net.send({t:'join_table',index:i}); });
     grid.appendChild(d);
   }
   const lb=document.getElementById('btn-leave-table');
@@ -1675,6 +1847,7 @@ function renderTables(){
 }
 
 document.getElementById('btn-leave-table').addEventListener('click',()=>{
+  Audio.btn();
   net.send({t:'leave_table'});
 });
 
@@ -1841,13 +2014,16 @@ function startNextGame(resetMatch){
 }
 
 document.getElementById('btn-rematch').addEventListener('click',()=>{
+  Audio.btn();
   MATCH={p1:0,p2:0,game:0,scores:[]}; // full reset including scores before anything else
   startNextGame(false); // game counter already reset above
 });
 document.getElementById('btn-next-game').addEventListener('click',()=>{
+  Audio.btn();
   startNextGame(false); // next game in series
 });
 document.getElementById('btn-diff-again').addEventListener('click',()=>{
+  Audio.btn();
   // Local: play again — go back to diff select or same diff
   LOCAL_SESSION = {p1pts:0, p2pts:0};
   document.getElementById('scr-result').style.display='none';
@@ -1873,6 +2049,11 @@ window.addEventListener('resize',resize);
 document.fonts.ready.then(resize);
 setTimeout(resize,200);
 connectWS();
+// Start title fugue after first user interaction (autoplay policy)
+document.addEventListener('pointerdown', function startAudioOnce(){
+  Audio.startFugue();
+  document.removeEventListener('pointerdown', startAudioOnce);
+}, {once:true});
 
 </script>
 
