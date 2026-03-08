@@ -529,10 +529,15 @@ const Audio = (()=>{
     },
     // ── Title screen: C major fugue, 3-voice exposition ───────────
     _fugueAlive: false,
+    _fugueMaster: null,
     startFugue(){
       if(this._fugueAlive) return;
       this._fugueAlive = true;
       const C = ac();
+      const master = C.createGain();
+      master.gain.setValueAtTime(1, C.currentTime);
+      master.connect(C.destination);
+      this._fugueMaster = master;
       const freq = (n,o)=>({C:261.63,D:293.66,E:329.63,F:349.23,G:392,A:440,B:493.88}[n]*(o===3?0.5:o===5?2:1));
 
       // Subject (voice 1) — 8 notes, ~2.1s per pass
@@ -572,7 +577,7 @@ const Audio = (()=>{
         g.gain.setValueAtTime(0,t);
         g.gain.linearRampToValueAtTime(vol,t+0.012);
         g.gain.exponentialRampToValueAtTime(0.001,t+dur*0.85);
-        osc.connect(g); g.connect(C.destination);
+        osc.connect(g); g.connect(master);
         osc.start(t); osc.stop(t+dur);
       }
 
@@ -609,6 +614,12 @@ const Audio = (()=>{
     },
     stopFugue(){
       this._fugueAlive = false;
+      if(this._fugueMaster){
+        const C = ac();
+        this._fugueMaster.gain.setValueAtTime(this._fugueMaster.gain.value, C.currentTime);
+        this._fugueMaster.gain.linearRampToValueAtTime(0, C.currentTime + 0.08);
+        this._fugueMaster = null;
+      }
     },
   };
 })();
@@ -1855,7 +1866,7 @@ function renderTables(){
         <div class="pip ${st==='full'?'on2':''}"></div>
       </div>
       <div class="t-label">${mine?'← TUA MESA':st==='empty'?'LIVRE':st==='waiting'?'1 JOGADOR':'2 JOGADORES'}</div>`;
-    if(!mine&&st!=='full') d.addEventListener('click',()=>{ Audio.btn(); net.send({t:'join_table',index:i}); });
+    if(!mine&&st!=='full') d.addEventListener('click',()=>{ Audio.btn(); Audio.stopFugue(); net.send({t:'join_table',index:i}); });
     grid.appendChild(d);
   }
   const lb=document.getElementById('btn-leave-table');
