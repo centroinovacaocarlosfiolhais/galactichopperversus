@@ -527,100 +527,6 @@ const Audio = (()=>{
     btn(){
       play('square',1200,0.002,0.04,0.07,800);
     },
-    // ── Title screen: C major fugue, 3-voice exposition ───────────
-    _fugueAlive: false,
-    _fugueMaster: null,
-    startFugue(){
-      if(this._fugueAlive) return;
-      this._fugueAlive = true;
-      const C = ac();
-      const master = C.createGain();
-      master.gain.setValueAtTime(1, C.currentTime);
-      master.connect(C.destination);
-      this._fugueMaster = master;
-      const freq = (n,o)=>({C:261.63,D:293.66,E:329.63,F:349.23,G:392,A:440,B:493.88}[n]*(o===3?0.5:o===5?2:1));
-
-      // Subject (voice 1) — 8 notes, ~2.1s per pass
-      const subj = [
-        {n:'C',o:4,d:0.38},{n:'D',o:4,d:0.19},{n:'E',o:4,d:0.19},
-        {n:'G',o:4,d:0.38},{n:'E',o:4,d:0.19},{n:'D',o:4,d:0.19},
-        {n:'C',o:4,d:0.38},{n:'G',o:3,d:0.56},
-      ];
-      // Answer (voice 2) — at the fifth
-      const answ = [
-        {n:'G',o:4,d:0.38},{n:'A',o:4,d:0.19},{n:'B',o:4,d:0.19},
-        {n:'D',o:5,d:0.38},{n:'B',o:4,d:0.19},{n:'A',o:4,d:0.19},
-        {n:'G',o:4,d:0.38},{n:'D',o:4,d:0.56},
-      ];
-      // Countersubject (voice 3) — running 8ths
-      const coun = [
-        {n:'E',o:5,d:0.19},{n:'D',o:5,d:0.19},{n:'C',o:5,d:0.19},{n:'B',o:4,d:0.19},
-        {n:'A',o:4,d:0.19},{n:'G',o:4,d:0.19},{n:'F',o:4,d:0.19},{n:'E',o:4,d:0.19},
-        {n:'D',o:4,d:0.38},{n:'E',o:4,d:0.19},{n:'F',o:4,d:0.19},{n:'G',o:4,d:0.56},
-      ];
-
-      const dur = (p) => p.reduce((a,e)=>a+e.d, 0);
-      const subjDur = dur(subj);   // ~2.46s
-      const answDur = dur(answ);
-      const counDur = dur(coun);
-
-      // Voice 1 plays ALONE for 4 full passes before voice 2 enters
-      // Voice 2 plays ALONE with V1 for 4 full passes before voice 3 enters
-      const v2Start = subjDur * 4;           // V2 enters after 4 passes of V1
-      const v3Start = v2Start + answDur * 4; // V3 enters after 4 passes of V2
-      const loopLen = v3Start + counDur * 4; // one full exposition cycle
-
-      function schedNote(f, t, dur, type, vol){
-        if(!self._fugueAlive) return;
-        const osc=C.createOscillator(), g=C.createGain();
-        osc.type=type; osc.frequency.value=f;
-        g.gain.setValueAtTime(0,t);
-        g.gain.linearRampToValueAtTime(vol,t+0.012);
-        g.gain.exponentialRampToValueAtTime(0.001,t+dur*0.85);
-        osc.connect(g); g.connect(master);
-        osc.start(t); osc.stop(t+dur);
-      }
-
-      function schedPattern(pattern, startAt, reps, type, vol, octShift=0){
-        let t = startAt;
-        for(let r=0; r<reps; r++){
-          pattern.forEach(ev=>{
-            schedNote(freq(ev.n, ev.o+octShift)*1, t, ev.d, type, vol);
-            t += ev.d;
-          });
-        }
-        return t;
-      }
-
-      const self = this;
-      function cycle(base){
-        if(!self._fugueAlive) return;
-        // V1 alone × 4
-        schedPattern(subj, base,           4, 'sine',     0.14);
-        // V2 enters × 4 (V1 continues underneath)
-        schedPattern(subj, base+v2Start,   4, 'sine',     0.11);
-        schedPattern(answ, base+v2Start,   4, 'triangle', 0.10);
-        // V3 enters × 4 (all three together)
-        schedPattern(subj, base+v3Start,   4, 'sine',     0.09);
-        schedPattern(answ, base+v3Start,   4, 'triangle', 0.08);
-        schedPattern(coun, base+v3Start,   4, 'sawtooth', 0.045, -1);
-        // Schedule next cycle
-        const nextBase = base + loopLen;
-        const msUntilNext = (nextBase - C.currentTime - 0.5) * 1000;
-        setTimeout(()=>cycle(nextBase), Math.max(0, msUntilNext));
-      }
-
-      cycle(C.currentTime + 0.05);
-    },
-    stopFugue(){
-      this._fugueAlive = false;
-      if(this._fugueMaster){
-        const C = ac();
-        this._fugueMaster.gain.setValueAtTime(this._fugueMaster.gain.value, C.currentTime);
-        this._fugueMaster.gain.linearRampToValueAtTime(0, C.currentTime + 0.08);
-        this._fugueMaster = null;
-      }
-    },
   };
 })();
 
@@ -1718,7 +1624,6 @@ function goGame(){
 
 document.getElementById('btn-lobby').addEventListener('click',()=>{
   Audio.btn();
-  Audio.stopFugue();
   document.getElementById('scr-title').style.display='none';
   goLobby();
 });
@@ -1866,7 +1771,7 @@ function renderTables(){
         <div class="pip ${st==='full'?'on2':''}"></div>
       </div>
       <div class="t-label">${mine?'← TUA MESA':st==='empty'?'LIVRE':st==='waiting'?'1 JOGADOR':'2 JOGADORES'}</div>`;
-    if(!mine&&st!=='full') d.addEventListener('click',()=>{ Audio.btn(); Audio.stopFugue(); net.send({t:'join_table',index:i}); });
+    if(!mine&&st!=='full') d.addEventListener('click',()=>{ Audio.btn(); net.send({t:'join_table',index:i}); });
     grid.appendChild(d);
   }
   const lb=document.getElementById('btn-leave-table');
@@ -2076,11 +1981,6 @@ window.addEventListener('resize',resize);
 document.fonts.ready.then(resize);
 setTimeout(resize,200);
 connectWS();
-// Start title fugue after first user interaction (autoplay policy)
-document.addEventListener('pointerdown', function startAudioOnce(){
-  Audio.startFugue();
-  document.removeEventListener('pointerdown', startAudioOnce);
-}, {once:true});
 
 </script>
 
@@ -2092,4 +1992,4 @@ document.addEventListener('pointerdown', function startAudioOnce(){
 </div>
 
 </body>
-</html>
+</html>P
