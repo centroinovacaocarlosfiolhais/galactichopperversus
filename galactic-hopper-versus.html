@@ -1546,7 +1546,13 @@ function hideAll(){
   ['scr-title','scr-lobby','scr-diff','scr-result','wrap']
     .forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
 }
+let _goingLobby=false;
 function goLobby(){
+  // Notify opponent we left (online mode only)
+  if(!_goingLobby && (gameMode==='p1'||gameMode==='p2') && myTable>=0){
+    net.send({t:'go_lobby'});
+  }
+  _goingLobby=false;
   hideAll();
   document.getElementById('scr-lobby').style.display='flex';
   makeStarfield(document.getElementById('lobby-bg'));
@@ -1724,11 +1730,22 @@ function connectWS(){
         goGame(); break;
 
       case'opponent_left':
-        if(!G.running)break;
         G.running=false; cancelAnimationFrame(loopId);
-        alert('Oponente desconectado.');
+        document.getElementById('modal-waiting').classList.remove('show');
+        setNote('O adversário desconectou.','#ff4444');
         myTable=-1; myRole=null;
         goLobby(); break;
+
+      case'go_lobby':
+        // Opponent left voluntarily — follow them back to lobby
+        G.running=false; cancelAnimationFrame(loopId);
+        document.getElementById('modal-waiting').classList.remove('show');
+        document.getElementById('modal-scoreboard').classList.remove('show');
+        myTable=-1; myRole=null;
+        _goingLobby=true;
+        goLobby();
+        setNote('O adversário voltou ao lobby.','#ff8800');
+        break;
 
       case'left_table':
         myTable=-1; myRole=null; renderTables();
