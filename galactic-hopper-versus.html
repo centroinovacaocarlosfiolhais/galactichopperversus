@@ -234,31 +234,12 @@ canvas{display:block;image-rendering:pixelated}
 .ladder-breakdown{font-size:11px;letter-spacing:1px;color:rgba(255,255,255,.45);line-height:1.8}
 .ladder-wins{font-size:13px;letter-spacing:2px;font-weight:700;margin-top:2px}
 
-/* ── SCOREBOARD MODAL ── */
-#modal-scoreboard{position:fixed;inset:0;background:rgba(0,0,5,.92);display:none;
-  flex-direction:column;align-items:center;justify-content:center;z-index:998;
-  font-family:'Orbitron',monospace;}
-#modal-scoreboard.show{display:flex}
-.msb-title{font-size:clamp(16px,4vw,28px);font-weight:900;letter-spacing:6px;
-  color:rgba(255,255,255,.9);margin-bottom:6px}
-.msb-sub{font-size:12px;letter-spacing:4px;color:rgba(0,255,255,.5);margin-bottom:20px}
-.msb-table{width:90%;max-width:480px;border-collapse:collapse;margin-bottom:20px}
-.msb-table th{font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.4);
-  padding:4px 10px;text-align:center;border-bottom:1px solid rgba(255,255,255,.1)}
-.msb-table td{font-size:15px;font-weight:700;padding:7px 10px;text-align:center;
-  font-family:'Orbitron',monospace}
-.msb-table .game-row:nth-child(even){background:rgba(255,255,255,.03)}
-.msb-table .total-row td{border-top:1px solid rgba(255,255,255,.2);
-  font-size:18px;color:rgba(255,255,255,.9);padding-top:10px}
-.msb-table .winner-cell{color:#ffdd00;text-shadow:0 0 8px #ffaa00}
-.msb-table .p1-col{color:var(--c1)}
-.msb-table .p2-col{color:var(--c2)}
-.msb-starting{font-size:13px;letter-spacing:3px;color:rgba(0,255,255,.5);margin-top:4px}
 
-/* ── SCOREBOARD MODAL ── */
-#modal-scoreboard{position:fixed;inset:0;background:rgba(0,0,5,.94);display:none;
-  flex-direction:column;align-items:center;justify-content:center;z-index:998;
-  font-family:'Orbitron',monospace;padding:20px}
+
+/* ── SCOREBOARD (inline in result screen, shown at series end) ── */
+#modal-scoreboard{display:none;width:100%;max-width:500px;margin:8px 0;
+  flex-direction:column;align-items:center;font-family:'Orbitron',monospace;
+  margin:8px 0;padding:12px 0;border-top:1px solid rgba(255,255,255,.12)}
 #modal-scoreboard.show{display:flex}
 .msb-title{font-size:clamp(16px,3.5vw,26px);font-weight:900;letter-spacing:6px;
   color:rgba(255,255,255,.9);margin-bottom:4px;text-align:center}
@@ -383,7 +364,7 @@ canvas{display:block;image-rendering:pixelated}
       <span class="ms-sep">·</span>
       <span class="ms-p2" id="ms-p2">0</span>
     </div>
-    <div class="ms-label" id="ms-label">SÉRIE</div>
+    <div class="ms-label" id="ms-label">SERIE</div>
     <div class="result-vs">
       <div class="rvc">
         <div class="rname n1">JOGADOR 1</div>
@@ -400,43 +381,26 @@ canvas{display:block;image-rendering:pixelated}
       </div>
     </div>
     <div id="result-reason" style="font-size:16px;letter-spacing:2px;color:rgba(255,200,100,.7)"></div>
+    <!-- Scoreboard: shown at end of online series -->
+    <div id="modal-scoreboard">
+      <div class="msb-title">PONTUACAO FINAL DA SERIE</div>
+      <div class="msb-sub" id="msb-sub"></div>
+      <table class="msb-table">
+        <thead><tr><th>JOGO</th><th class="p1h">J1</th><th class="p2h">J2</th><th>VENCEDOR</th></tr></thead>
+        <tbody id="msb-body"></tbody>
+        <tfoot><tr class="total-row"><td>TOTAL</td><td class="p1v" id="msb-tot1">0</td><td class="p2v" id="msb-tot2">0</td><td id="msb-lead">-</td></tr></tfoot>
+      </table>
+    </div>
     <div class="divl"></div>
     <div class="btn-row">
-      <button class="btn" id="btn-rematch" style="display:none">↺ NOVA SÉRIE</button>
-      <button class="btn" id="btn-next-game" style="display:none">▶ PRÓXIMO JOGO</button>
-      <button class="btn bw" id="btn-diff-again" style="display:none">↺ JOGAR DE NOVO</button>
-      <button class="btn bw" id="btn-lobby2">↩ LOBBY</button>
+      <button class="btn" id="btn-rematch" style="display:none">&#8635; NOVA SERIE</button>
+      <button class="btn" id="btn-next-game" style="display:none">&#9654; PROXIMO JOGO</button>
+      <button class="btn bw" id="btn-diff-again" style="display:none">&#8635; JOGAR DE NOVO</button>
+      <button class="btn bw" id="btn-lobby2">&#8617; LOBBY</button>
     </div>
   </div>
 </div>
 
-
-
-<!-- ═══ SCOREBOARD MODAL ════════════════════════════════════════ -->
-<div id="modal-scoreboard">
-  <div class="msb-title">PONTUAÇÃO DA SÉRIE</div>
-  <div class="msb-sub" id="msb-sub"></div>
-  <table class="msb-table">
-    <thead>
-      <tr>
-        <th>JOGO</th>
-        <th class="p1h">J1</th>
-        <th class="p2h">J2</th>
-        <th>VENCEDOR</th>
-      </tr>
-    </thead>
-    <tbody id="msb-body"></tbody>
-    <tfoot>
-      <tr class="total-row">
-        <td>TOTAL</td>
-        <td class="p1v" id="msb-tot1">0</td>
-        <td class="p2v" id="msb-tot2">0</td>
-        <td id="msb-lead">—</td>
-      </tr>
-    </tfoot>
-  </table>
-  <div class="msb-starting" id="msb-starting"></div>
-</div>
 
 <!-- ═══ COUNTDOWN MODAL ═════════════════════════════════════════ -->
 <div id="modal-countdown">
@@ -602,11 +566,17 @@ function makeBH(col, row){
 function makeBHs(){
   // Online: 1 BH always; Local D4/D5: 2 BHs; otherwise 1
   const two = gameMode==='local' && (LOCAL_DIFF===4||LOCAL_DIFF===5);
-  // Spawn near top — use bays 1 and 3 (cols 5 and 13), row 2
+  // Spawn near top — BH1 top-left, BH2 top-right
   const bhs = [makeBH(BAY_COLS[1], 2)];
-  if(two) bhs.push(makeBH(BAY_COLS[3], 2));
-  // For online game>0 or local D4+, activate immediately
-  const startActive = gameMode!=='local' ? MATCH.game>0 : (LOCAL_DIFF>=4);
+  if(two) bhs.push(makeBH(BAY_COLS[3], 2)); // clearly separate from BH1
+  // Activate: online game>0, or local if bh_int at level 1 is actionable
+  let startActive;
+  if(gameMode!=='local'){
+    startActive = MATCH.game>0;
+  } else {
+    const bhi = LOCAL_DIFF_CFG[LOCAL_DIFF].bh_int;
+    startActive = bhi && Array.isArray(bhi) && bhi[1] != null && bhi[1] < 999;
+  }
   if(startActive) bhs.forEach(bh=>{ bh.active=true; });
   return bhs;
 }
@@ -629,7 +599,7 @@ function initG(seed){
     r:Math.random()*1.0+.2,sp:Math.random()*.13+.03,tw:Math.random()*TAU
   }));
   rebuildObs(1,seed);
-  rebuildWH(1);
+  rebuildWH(1); // sets wh[] based on level 1 config
 }
 
 function rebuildObs(lvl,seed){
@@ -1240,8 +1210,8 @@ function bhInterval(){
   if(MATCH.game===0) return BH_INT[Math.min(G.level,3)];
   return GAME_BH[Math.min(MATCH.game, GAME_BH.length-1)];
 }
-function tickOneBH(bh, target){
-  bh.timer++;
+function tickOneBH(bh, target, dt){
+  bh.timer+=dt;
   if(bh.timer>=bhInterval()){
     bh.timer=0;
     const dr=Math.sign(target.row-bh.row),dc=Math.sign(target.col-bh.col);
@@ -1258,11 +1228,11 @@ function tickBH(dt){
   const p1b=G.bays.filter(b=>b===1).length,p2b=G.bays.filter(b=>b===2).length;
   if(G.bhs.length===1){
     // Single BH targets the leader
-    tickOneBH(G.bhs[0], p1b>=p2b?G.p1:G.p2);
+    tickOneBH(G.bhs[0], p1b>=p2b?G.p1:G.p2, dt);
   } else {
     // Two BHs: first targets P1, second targets P2
-    tickOneBH(G.bhs[0], G.p1);
-    tickOneBH(G.bhs[1], G.p2);
+    tickOneBH(G.bhs[0], G.p1, dt);
+    tickOneBH(G.bhs[1], G.p2, dt);
   }
 }
 
@@ -1305,12 +1275,9 @@ function tickTimer(ts){
       G.level=tgtLvl;
       rebuildObs(tgtLvl);rebuildWH(tgtLvl);
       G.lvlFlash=55;
-      // Activate BH at level 3
-      // Activate BHs at level 3 — but only if bhInterval() allows it
-      if(tgtLvl===3){
-        const bhi=bhInterval();
-        if(bhi<999) G.bhs.forEach(bh=>{ bh.active=true; });
-      }
+      // Activate BHs on any level where bhInterval() is actionable
+      G.bhs.forEach(bh=>{ if(!bh.active && bhInterval()<999) bh.active=true; });
+      updateHUD();
       showLvlFlashUI(tgtLvl);
       if(gameMode==='p1')net.send({t:'level',lvl:tgtLvl});
     }
@@ -1320,7 +1287,13 @@ function tickTimer(ts){
 function showLvlFlashUI(lvl){
   const el=document.getElementById('lvl-flash');
   document.getElementById('lf-t').textContent='NÍVEL '+lvl;
-  document.getElementById('lf-s').textContent=lvl===2?'O BURACO NEGRO DESPERTA':lvl===3?'EXTINÇÃO TOTAL':'';
+  const whCount = wh.length;
+  const bhActive = G.bhs.some(b=>b.active);
+  const bhCount = G.bhs.filter(b=>b.active).length;
+  let sub = lvl===2?'OBSTÁCULOS ACELERAM':lvl===3?'EXTINÇÃO TOTAL':'';
+  if(whCount>0) sub += (sub?' · ':'')+whCount+' WORMHOLE'+(whCount>1?'S':'');
+  if(bhActive) sub += ' · '+(bhCount>1?bhCount+'x ':'')+' BURACO NEGRO ATIVO';
+  document.getElementById('lf-s').textContent=sub;
   el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'),1400);
 }
@@ -1422,7 +1395,7 @@ function handleNetMsg(msg){
       G.seed=msg.seed; initG(msg.seed); lastSecTs=performance.now();
       document.getElementById('scr-result').style.display='none';
       document.getElementById('scr-lobby').style.display='none';
-      showScoreboard(()=>goGame()); break;
+      goGame(); break;
     case'pos':
       {const rp=gameMode==='p1'?G.p2:G.p1; rp.row=msg.r; rp.col=msg.c;} break;
     case'dock':
@@ -1568,6 +1541,7 @@ document.getElementById('btn-lobby').addEventListener('click',()=>{
   goLobby();
 });
 document.getElementById('btn-lobby2').addEventListener('click',()=>{
+  document.getElementById('modal-scoreboard').classList.remove('show');
   net.send({t:'leave_table'});
   document.getElementById('scr-result').style.display='none';
   goLobby();
@@ -1827,58 +1801,51 @@ function showResult(winner,reason){
     rematchBtn.style.display   = matchOver ? 'block' : 'none';
     nextBtn.style.display      = matchOver ? 'none'  : 'block';
     diffAgainBtn.style.display = 'none';
+    if(matchOver) renderScoreboardInResult();
   }
 
   document.getElementById('scr-result').style.display='flex';
   makeStarfield(document.getElementById('result-bg'));
 }
 
-function showScoreboard(onDone){
-  if(gameMode==='local'||MATCH.scores.length===0){ onDone(); return; }
-  const modal = document.getElementById('modal-scoreboard');
-  const body  = document.getElementById('msb-body');
-  const gameIdx = MATCH.game; // about to start game N (0-based)
-  const diffLabels=['NORMAL','RÁPIDO ⚡','VELOZ ⚡⚡','INSANO ⚡⚡⚡','CAOS ⚡⚡⚡⚡'];
-  document.getElementById('msb-sub').textContent=
-    'SÉRIE · '+diffLabels[Math.min(gameIdx,diffLabels.length-1)]+
-    '  |  J1 '+MATCH.p1+' vs J2 '+MATCH.p2+'  (primeiro a '+WINS_NEEDED+')';
-
-  // Build rows
+function renderScoreboardInResult(){
+  // Called when matchOver — injects scoreboard table into result screen
+  if(!MATCH.scores.length) return;
+  const body = document.getElementById('msb-body');
   body.innerHTML='';
   let tot1=0, tot2=0;
   MATCH.scores.forEach((s,i)=>{
-    const w = s.winner;
-    const r = document.createElement('tr');
+    const w=s.winner;
+    const r=document.createElement('tr');
     r.className='game-row';
     r.innerHTML=
-      '<td style="color:rgba(255,255,255,.4);font-size:12px">JOGO '+(i+1)+'</td>'+
+      '<td style="color:rgba(255,255,255,.4);font-size:11px">JOGO '+(i+1)+'</td>'+
       '<td class="'+(w===1?'hi p1v':'p1v')+'">'+s.p1+'</td>'+
       '<td class="'+(w===2?'hi p2v':'p2v')+'">'+s.p2+'</td>'+
-      '<td style="font-size:11px;letter-spacing:1px;color:'+(w===1?'var(--c1)':w===2?'var(--c2)':'rgba(255,255,255,.3)')+'">'+
+      '<td style="font-size:10px;letter-spacing:1px;color:'+(w===1?'var(--c1)':w===2?'var(--c2)':'rgba(255,255,255,.3)')+'">'+
         (w===1?'J1 ★':w===2?'J2 ★':'EMPATE')+'</td>';
     body.appendChild(r);
     tot1+=s.p1; tot2+=s.p2;
   });
-
   document.getElementById('msb-tot1').textContent=tot1;
   document.getElementById('msb-tot2').textContent=tot2;
-  const lead = tot1>tot2?'J1 lidera':tot2>tot1?'J2 lidera':'Empatados';
+  const lead=tot1>tot2?'J1 lidera':tot2>tot1?'J2 lidera':'Empatados';
   document.getElementById('msb-lead').textContent=lead;
-  document.getElementById('msb-starting').textContent='JOGO '+(gameIdx+1)+' COMEÇA EM BREVE...';
-
-  modal.classList.add('show');
-  setTimeout(()=>{ modal.classList.remove('show'); onDone(); }, 5000);
+  document.getElementById('msb-sub').textContent=
+    'J1 '+MATCH.p1+' vitórias · J2 '+MATCH.p2+' vitórias  (primeiro a '+WINS_NEEDED+')';
+  // Show the modal panel inside the result screen (not fullscreen overlay)
+  document.getElementById('modal-scoreboard').classList.add('show');
 }
 
 function startNextGame(resetMatch){
   document.getElementById('scr-result').style.display='none';
+  document.getElementById('modal-scoreboard').classList.remove('show');
   if(resetMatch){ MATCH={p1:0,p2:0,game:0,scores:[]}; }
   // MATCH.game is now incremented inside showResult for online
   if(gameMode==='p1'){
     const seed=Math.floor(Math.random()*0xffffff);
     net.send({t:'next',seed,match:MATCH});
-    G.seed=seed; initG(seed); lastSecTs=performance.now();
-    showScoreboard(()=>goGame());
+    G.seed=seed; initG(seed); lastSecTs=performance.now(); goGame();
   } else {
     // P2 waits for P1 to trigger
     hideAll(); document.getElementById('scr-lobby').style.display='flex';
