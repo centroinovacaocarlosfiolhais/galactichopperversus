@@ -1,3 +1,4 @@
+![Galatic Hopper VS](../GalaticHopperVS.png)
 # 🚀 Galactic Hopper VS
 
 Jogo multijogador versus em tempo real — estilo Frogger espacial.
